@@ -1,0 +1,9 @@
+print(stats.ttest_rel(df['GSS'], df['HAGRID']))
+print(stats.ttest_rel(df['GSS'], df['OCF']))
+print(stats.ttest_rel(df['GSS'], df['PLS-DA']))
+print(stats.ttest_rel(df['GSS'], df['FNGBS']))
+
+Ttest_relResult(statistic=4.314101700890258, pvalue=0.001949939385542691)
+Ttest_relResult(statistic=4.646493895792991, pvalue=0.0012080979053243008)
+Ttest_relResult(statistic=3.8838964516556516, pvalue=0.003709300611248597)
+Ttest_relResult(statistic=6.302078140008517, pvalue=0.00014063649863817467)
