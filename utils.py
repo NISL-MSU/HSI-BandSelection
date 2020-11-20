@@ -1,0 +1,303 @@
+import h5py
+from scipy import integrate
+from scipy import ndimage
+from scipy.stats import norm
+import statsmodels.api as sm
+import pickle
+import cv2
+from readSAT import *
+from scipy import stats
+
+# import matplotlib.pyplot as plt
+
+
+def generic_gaussians(indices, bandwidth):
+    """
+    Given the indices of the wavelength centers and the
+    filter bandwidth (given in nanometers), return the
+    gaussians defined by these inputs
+    """
+
+    index_bandwidth = bandwidth
+    all_gaussians = []
+
+    # Given the bandwidth (which is equivalent to the full width-
+    # half maximum of a Gaussian), calculate the standard deviation
+    # FWHM = 2*sqrt(2ln(2))*stdev => stdev = FWHM/(2*sqrt(2ln(2)))
+    stdev = np.divide(index_bandwidth, np.multiply(2, np.sqrt(np.multiply(np.log(2), 2))))
+
+    for ind in indices:
+        curve = np.linspace(0, 150, 150)
+        pdf = norm.pdf(curve, ind, stdev)
+        # pdf = np.multiply(pdf, np.divide(highest_count, np.max(pdf)))
+        gauss = np.divide(pdf, np.max(pdf))  # Normalize to 1
+        all_gaussians.append(gauss)
+        # plt.plot(curve, pdf)
+
+    return all_gaussians
+
+
+def transform_data(produce_spectras, indices, bandwidth):
+    """
+    Get the original produce data, then transofrm that data
+    using the histogram used to fit the histogram of wavelengths
+    """
+
+    gaussians = generic_gaussians(indices, bandwidth)
+
+    new_data = []
+    for spectrum in produce_spectras:
+        old_spectrum = spectrum
+        new_point = []
+
+        # For each gaussian, integrate under the curve
+        # multiplied by the original data point to
+        # simulate a filter with the bandwidth of the
+        # gaussian
+        for g in gaussians:
+            curve = np.multiply(old_spectrum, g)
+            integral = integrate.trapz(curve)
+            new_point.append(integral)
+
+        # new_spectrum = np.multiply(old_spectrum, gaussian)
+
+        new_data.append(new_point)
+
+    return new_data
+
+
+def add_rotation_flip(x, y):
+    x = np.reshape(x, (x.shape[0], x.shape[1], x.shape[2], x.shape[3], 1))
+
+    # Flip horizontally
+    x_h = np.flip(x[:, :, :, :, :], 1)
+    # Flip vertically
+    x_v = np.flip(x[:, :, :, :, :], 2)
+    # Flip horizontally and vertically
+    x_hv = np.flip(x_h[:, :, :, :, :], 2)
+
+    # Concatenate
+    x = np.concatenate((x, x_hv, x_v))
+    y = np.concatenate((y, y, y))
+
+    return x, y
+
+
+def load_data(flag_average=True, median=False, normalization=True, nbands=np.infty, method='SSA', selection=None,
+              transform=False, data='', vifv=0):
+    """Load one of the satellite HSI datasets"""
+    if data == "IP":
+        train_x, train_y = loadata(data)
+        train_x, train_y = createImageCubes(train_x, train_y, window=5)
+    else:
+        """Load Kochia or Avocado dataset"""
+        hdf5_file = ''
+        if data == "Kochia":
+            hdf5_file = h5py.File('weed_dataset_w25.hdf5', "r")
+        elif data == "Avocado":
+            hdf5_file = h5py.File('avocado_dataset_w64.hdf5', "r")
+        train_x = np.array(hdf5_file["train_img"][...]).astype(np.float32)
+        train_y = np.array(hdf5_file["train_labels"][...])
+    print("Dataset shape: " + str(train_x.shape))
+    print("Loading and transforming the data into the correct format...")
+    # Average consecutive bands
+    if flag_average:
+        if data == 'Avocado':
+            img2 = np.zeros(
+                (train_x.shape[0], int(train_x.shape[1] / 2), int(train_x.shape[2] / 2), int(train_x.shape[3] / 2)))
+        else:
+            img2 = np.zeros((train_x.shape[0], train_x.shape[1], train_x.shape[2], int(train_x.shape[3] / 2)))
+        for n in range(0, train_x.shape[0]):
+            if data == 'Avocado':
+                xt = cv2.resize(np.float32(train_x[n, :, :, :]), (32, 32), interpolation=cv2.INTER_CUBIC)
+                for i in range(0, train_x.shape[3], 2):
+                    if median:
+                        img2[n, :, :, int(i / 2)] = (ndimage.median_filter(xt[:, :, i], size=5) +
+                                                     ndimage.median_filter(xt[:, :, i + 1], size=5)) / 2.
+                    else:
+                        img2[n, :, :, int(i / 2)] = (xt[:, :, i] + xt[:, :, i + 1]) / 2.
+            # Average consecutive bands
+            else:
+                for i in range(0, train_x.shape[3], 2):
+                    if median and int(i / 2) > 120:
+                        img2[n, :, :, int(i / 2)] = (ndimage.median_filter(train_x[n, :, :, i], size=7) +
+                                                     ndimage.median_filter(train_x[n, :, :, i + 1], size=7)) / 2.
+                    else:
+                        img2[n, :, :, int(i / 2)] = (train_x[n, :, :, i] + train_x[n, :, :, i + 1]) / 2.
+
+        train_x = img2
+
+    # Select a subset of bands if the flag "selected is activated"
+    indexes = []
+    if nbands < int(train_x.shape[3]) or selection is not None:
+        if data == "Kochia":  # Selects indexes for the Kochia dataset
+            if method == 'SSA':
+                if nbands == 6:
+                    indexes = [1, 18, 43, 68, 81, 143]
+                elif nbands == 10:
+                    indexes = [0, 4, 18, 31, 43, 63, 68, 74, 79, 146]
+                elif nbands == 19 and vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
+                    indexes = [2, 5, 18, 31, 42, 54, 65, 68, 74, 79, 85, 89, 103, 106, 128, 132, 137, 143, 147]
+                elif nbands == 21 and vifv == 11:  # Selected by the Inter-band redundancy method. VIF: 11.
+                    indexes = [2, 5, 18, 31, 42, 47, 54, 65, 68, 74, 77, 80, 84, 89, 105, 132, 136, 139, 141, 143, 147]
+                elif nbands == 17 and vifv == 10:  # Selected by the Inter-band redundancy method. VIF: 10.
+                    indexes = [1, 18, 31, 43, 54, 64, 68, 78, 81, 84, 89, 105, 132, 136, 140, 143, 146]
+                elif nbands == 15 and vifv == 9:  # Selected by the Inter-band redundancy method. VIF: 9.
+                    indexes = [1, 18, 31, 43, 46, 54, 67, 74, 78, 81, 105, 132, 136, 139, 143]
+                elif nbands == 16 and vifv == 8:  # Selected by the Inter-band redundancy method. VIF: 8.
+                    indexes = [0, 4, 18, 31, 45, 55, 63, 68, 74, 79, 106, 132, 136, 140, 144, 146]
+                elif nbands == 16 and vifv == 7:  # Selected by the Inter-band redundancy method. VIF: 7.
+                    indexes = [0, 4, 18, 31, 43, 46, 56, 63, 66, 68, 74, 79, 105, 132, 140, 146]
+                elif nbands == 15 and vifv == 6:  # Selected by the Inter-band redundancy method. VIF: 6.
+                    indexes = [0, 4, 18, 47, 57, 62, 69, 74, 78, 81, 105, 132, 136, 140, 145]
+                elif nbands == 10 and vifv == 5:  # Selected by the Inter-band redundancy method. VIF: 5.
+                    indexes = [0, 18, 47, 61, 74, 79, 105, 132, 140, 145]
+            elif method == 'FNGBS':
+                if nbands == 6:
+                    indexes = [14, 51, 78, 106, 111, 148]
+                elif nbands == 10:
+                    indexes = [14, 32, 33, 51, 67, 85, 100, 111, 128, 144]
+            elif method == 'OCF':
+                if nbands == 6:
+                    indexes = [1, 129, 77, 82, 24, 42]
+                elif nbands == 10:
+                    indexes = [1, 15, 34, 42, 48, 56, 77, 82, 129, 132]
+            elif method == 'GA':
+                if nbands == 6:
+                    indexes = [4, 21, 40, 61, 124, 138]
+                elif nbands == 10:
+                    indexes = [12, 30, 50, 69, 82, 98, 118, 132, 140, 146]
+            elif method == 'PLS':
+                if nbands == 6:
+                    indexes = [35, 73, 88, 129, 134, 140]
+                elif nbands == 10:
+                    indexes = [4, 23, 35, 69, 73, 88, 129, 134, 140, 147]
+
+        elif data == "Avocado":  # Selects indexes for the Avocado dataset
+            if method == 'SSA':
+                if nbands == 5:
+                    indexes = [20, 41, 74, 102, 123]
+                elif nbands == 10 and vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
+                    indexes = [0, 20, 30, 43, 55, 60, 74, 98, 125, 133]
+                elif nbands == 8 and vifv == 11:  # Selected by the Inter-band redundancy method. VIF: 11.
+                    indexes = [0, 20, 30, 43, 60, 74, 99, 125]
+                elif nbands == 9:  # Selected by the Inter-band redundancy method. VIF: 10.
+                    indexes = [0, 20, 29, 43, 54, 59, 74, 99, 124]
+                elif nbands == 8 and vifv == 9:  # Selected by the Inter-band redundancy method. VIF: 9.
+                    indexes = [0, 20, 34, 43, 59, 74, 100, 125]
+                elif nbands == 8 and vifv == 8:  # Selected by the Inter-band redundancy method. VIF: 8.
+                    indexes = [0, 21, 36, 43, 59, 74, 101, 120, 124]
+                elif nbands == 8 and vifv == 7:  # Selected by the Inter-band redundancy method. VIF: 7.
+                    indexes = [0, 20, 36, 41, 74, 102, 123]
+                elif nbands == 7 and vifv == 6:  # Selected by the Inter-band redundancy method. VIF: 6.
+                    indexes = [0, 35, 46, 62, 75, 103, 126]
+                elif nbands == 6 and vifv == 5:  # Selected by the Inter-band redundancy method. VIF: 5.
+                    indexes = [0, 36, 75, 104, 112]
+            elif method == 'FNGBS':
+                if nbands == 5:
+                    indexes = [5, 25, 38, 90, 124]
+            elif method == 'OCF':
+                if nbands == 5:
+                    indexes = [33, 73, 97, 117, 144]
+            elif method == 'GA':
+                if nbands == 5:
+                    indexes = [7, 23, 35, 49, 100]
+            elif method == 'PLS':
+                if nbands == 5:
+                    indexes = [0, 74, 95, 135, 140]
+
+        if selection is not None:
+            indexes = selection
+            nbands = len(indexes)
+
+        # Sort indexes
+        indexes.sort()
+        print("Selecting bands: ", indexes)
+
+        if transform:
+            print("Transforming data...")
+            nu = train_x.shape[0]
+            w = train_x.shape[1]
+            sp = train_x.shape[3]
+            train_x = np.array(transform_data(produce_spectras=train_x.reshape((nu * w * w, sp)), bandwidth=5,
+                                              indices=indexes))
+            train_x = train_x.reshape((nu, w, w, nbands))
+        else:
+            # Select bands from original image
+            temp = np.zeros((train_x.shape[0], train_x.shape[1], train_x.shape[2], nbands))
+
+            for nb in range(0, nbands):
+                temp[:, :, :, nb] = train_x[:, :, :, indexes[nb]]
+
+            train_x = temp.astype(np.float32)
+
+    if normalization:
+        # Apply Band normalization
+        for n in range(train_x.shape[3]):
+            train_x[:, :, :, n] = (train_x[:, :, :, n] - np.mean(train_x[:, :, :, n])) \
+                                  / (np.std(train_x[:, :, :, n]))
+
+    if data == "Avocado":
+        train_x, train_y = add_rotation_flip(train_x, train_y)
+
+    return train_x, train_y, indexes
+
+
+def vif(inputX, printO=False, indexes=None):
+    VIF = np.zeros((inputX.shape[3]))
+
+    for i in range(0, inputX.shape[3]):
+        y = inputX[:, :, :, i]
+        x = np.zeros((inputX.shape[0], inputX.shape[1], inputX.shape[2], inputX.shape[3] - 1))
+        c = 0
+        for nb in range(0, inputX.shape[3]):
+            if nb != i:
+                x[:, :, :, c] = inputX[:, :, :, nb]
+                c += 1
+        x = x.reshape((inputX.shape[0] * inputX.shape[1] * inputX.shape[2], inputX.shape[3] - 1))
+        y = y.reshape((inputX.shape[0] * inputX.shape[1] * inputX.shape[2], 1))
+        model = sm.OLS(y, x)
+        results = model.fit()
+        rsq = results.rsquared
+        VIF[i] = round(1 / (1 - rsq), 2)
+        if printO:
+            print("R Square value of {} band is {} keeping all other bands as features".format(
+                indexes[i], (round(rsq, 2))))
+            print("Variance Inflation Factor of {} band is {} \n".format(indexes[i], VIF[i]))
+
+    return VIF
+
+
+def tTest(method1='', nbands1=6, method2='', nbands2=6, data='', transform=False, file1=None, file2=None):
+    """Perform a t-test between the results of two different methods."""
+
+    if file1 is None and file2 is None:
+        if transform:
+            transform = 'GAUSS'
+        else:
+            transform = ''
+        file1 = data + "\\results\\" + method1 + "\\" + str(nbands1) + " bands\\cvf1hyper3dnet" + method1 + \
+                str(nbands1) + data + transform
+        file2 = data + "\\results\\" + method2 + "\\" + str(nbands2) + " bands\\cvf1hyper3dnet" + method2 + \
+                str(nbands2) + data + transform
+
+    # Load the vectors of F1-scores obtain after 10-fold cross-validation
+    with open(file1, 'rb') as f:
+        cvf1 = pickle.load(f)
+
+    with open(file2, 'rb') as f:
+        cvf2 = pickle.load(f)
+
+    for i in cvf1:
+        print(i)
+    print()
+    for i in cvf2:
+        print(i)
+
+    return stats.ttest_rel(cvf1, cvf2).pvalue  # return the pvalue
+
+
+def entropy(labels, base=2):
+    value, counts = np.unique(labels, return_counts=True)
+    norm_counts = counts / counts.sum()
+    return -(norm_counts * np.log(norm_counts)/np.log(base)).sum()
