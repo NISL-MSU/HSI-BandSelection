@@ -1,0 +1,4 @@
+Overall accuracy98.132% (+/- 0.529%)
+Precision accuracy98.125% (+/- 0.466%)
+Recall accuracy98.242% (+/- 0.534%)
+F1 accuracy98.178% (+/- 0.488%)
