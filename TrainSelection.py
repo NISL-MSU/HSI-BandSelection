@@ -2,18 +2,15 @@ import utils
 import os
 import numpy as np
 import statsmodels.api as sm
-from torchsummary import summary
 from networks import *
 from sklearn.model_selection import StratifiedKFold
 import torch
-from torch import from_numpy
-import torch.optim as optim
 import pickle
 import pandas as pd
 from sklearn.metrics import precision_recall_fscore_support
 import matplotlib.pyplot as plt
-from LRP import LRP
 from sklearn.model_selection import train_test_split
+from Model import Model
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -69,19 +66,20 @@ Main Class Definition
 class TrainSelection:
     """Class used for training a dataset using the Hyper3DNetLite network"""
 
-    def __init__(self, nbands=6, method='SSA', transform=False, average=True, batch_size=128, epochs=150,
-                 data='Kochia', plot=False, selection=None, th='', median=False, vif=0):
+    def __init__(self, nbands=6, method='SSA', classifier='CNN', transform=False, average=True, batch_size=128,
+                 epochs=150, data='Kochia', plot=False, selection=None, th='', median=False, vif=0):
         """
-        @param: nbands - Desired number of bands.
-        @param: method - Band selection method. Options: 'SSA', 'OCF', 'GA', 'PLS', 'FNGBS', 'FullSpec'.
-        @param: transform - Flag used to simulate Gaussian bandwidths.
-        @param: average - Flag used to reduce the number of bands averaging consecutive bands.
-        @param: batch_size - Size of the batch used for training.
-        @param: epochs - Number of epochs used for training.
-        @param: data - Name of the dataset. Options: 'Kochia', 'Avocado'
-        @param: selection - Load only the selected bands from the dataset
-        @param: th - Optional index to add in the end of the generated files
-        @param: median - If True, perform a median filtering on the spectral bands.
+        @param nbands: Desired number of bands.
+        @param method: Band selection method. Options: 'SSA', 'OCF', 'GA', 'PLS', 'FNGBS', 'FullSpec'.
+        @param classifier: Type of model used to train the classifiers. Options: 'CNN', 'SVM', 'RF'.
+        @param transform: Flag used to simulate Gaussian bandwidths.
+        @param average: Flag used to reduce the number of bands averaging consecutive bands.
+        @param batch_size: Size of the batch used for training.
+        @param epochs: Number of epochs used for training.
+        @param data: Name of the dataset. Options: 'Kochia', 'Avocado'
+        @param selection: Load only the selected bands from the dataset
+        @param th: Optional index to add in the end of the generated files
+        @param median: If True, perform a median filtering on the spectral bands.
         """
         if selection is not None:
             self.nbands = len(selection)
@@ -91,14 +89,16 @@ class TrainSelection:
         self.transform = transform
         self.average = average
         self.batch_size = batch_size
+        self.classifier = classifier
         self.epochs = epochs
         self.data = data
+        self.plot = plot
         self.th = th
 
         # Read the data using the specified parameters
         self.trainx, self.train_y, self.indexes = \
             utils.load_data(nbands=nbands, flag_average=average, method=method, transform=transform, data=self.data,
-                            selection=selection, median=median, vifv=vif)
+                            selection=selection, median=median, vifv=vif, normalization=False)
         # Reshape as a 4-D TENSOR
         self.trainx = np.reshape(self.trainx, (self.trainx.shape[0], self.trainx.shape[1], self.trainx.shape[2],
                                                self.trainx.shape[3], 1))
@@ -128,48 +128,9 @@ class TrainSelection:
 
         # Load model
         print("Loading model...")
-        self.model = Hyper3DNetLite(img_shape=(1, self.nbands, self.windowSize, self.windowSize),
-                                    classes=int(self.classes))
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
-        # Prints summary of the model
-        summary(self.model, (1, self.nbands, self.windowSize, self.windowSize))
-
-        # Training parameters
-        if self.classes == 2:
-            self.criterion = nn.BCEWithLogitsLoss()
-        elif self.data == "Kochia":
-            class_count = [i for i in self.get_class_distributionKochia().values()]
-            class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
-            self.criterion = nn.CrossEntropyLoss(weight=class_weights.to(self.device))
-        else:
-            class_count = [i for i in self.get_class_distributionIP().values()]
-            class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
-            self.criterion = nn.CrossEntropyLoss(weight=class_weights.to(self.device))
-        self.optimizer = optim.Adadelta(self.model.parameters(), lr=1.0)
-
-        self.plot = plot
-
-    def evaluate(self, test):
-        """Return the numpy target and predicted vectors as numpy vectors.
-        @ param: test - List of test indexes
-        """
-        ypred = []
-        with torch.no_grad():
-            self.model.eval()
-            Teva = np.ceil(1.0 * len(test) / self.batch_size).astype(np.int32)
-            for b in range(Teva):
-                inds = test[b * self.batch_size:(b + 1) * self.batch_size]
-                ypred_batch = self.model(from_numpy(self.trainx[inds]).float().to(self.device))
-                if self.classes > 2:
-                    y_pred_softmax = torch.log_softmax(ypred_batch, dim=1)
-                    _, y_pred_tags = torch.max(y_pred_softmax, dim=1)
-                else:
-                    y_pred_tags = torch.round(torch.sigmoid(ypred_batch))
-                ypred = ypred + (y_pred_tags.cpu().numpy()).tolist()
-        ytest = from_numpy(self.train_y[test]).long().cpu().numpy()
-
-        return ytest, ypred
+        self.model = Model(self.classifier, self.data, self.device, self.nbands, self.windowSize,
+                           self.train_y, self.classes)
 
     def confusion_matrix(self, ypred, ytest):
         """Calculate confusion matrix"""
@@ -183,61 +144,6 @@ class TrainSelection:
         con_mat_df = pd.DataFrame(con_mat_norm, index=classes_list, columns=classes_list)
         return con_mat_df
 
-    def get_class_distributionKochia(self):
-        """Get number of samples per class"""
-        count_dict = {"0": 0, "1": 0, "2": 0}
-
-        for i in self.train_y:
-            if i == 0:
-                count_dict['0'] += 1
-            elif i == 1:
-                count_dict['1'] += 1
-            elif i == 2:
-                count_dict['2'] += 1
-
-        return count_dict
-
-    def get_class_distributionIP(self):
-        """Get number of samples per class"""
-        count_dict = {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0, "11": 0,
-                      "12": 0, "13": 0, "14": 0, "15": 0}
-
-        for i in self.train_y:
-            if i == 0:
-                count_dict['0'] += 1
-            elif i == 1:
-                count_dict['1'] += 1
-            elif i == 2:
-                count_dict['2'] += 1
-            if i == 3:
-                count_dict['3'] += 1
-            elif i == 4:
-                count_dict['4'] += 1
-            elif i == 5:
-                count_dict['5'] += 1
-            if i == 6:
-                count_dict['6'] += 1
-            elif i == 7:
-                count_dict['7'] += 1
-            elif i == 8:
-                count_dict['8'] += 1
-            if i == 9:
-                count_dict['9'] += 1
-            elif i == 10:
-                count_dict['10'] += 1
-            elif i == 11:
-                count_dict['11'] += 1
-            if i == 12:
-                count_dict['12'] += 1
-            elif i == 13:
-                count_dict['13'] += 1
-            elif i == 14:
-                count_dict['14'] += 1
-            elif i == 15:
-                count_dict['15'] += 1
-
-        return count_dict
-
     def train(self):
         if self.data == "Kochia" or self.data == "Avocado":
             self.train10x1()
@@ -245,13 +151,13 @@ class TrainSelection:
             self.train5x2()
 
     def train10x1(self):
-
+        """Train the network using 10-fold cross validation"""
         np.random.seed(seed=7)  # Initialize seed to get reproducible results
         torch.manual_seed(7)
         torch.cuda.manual_seed(7)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        """Train the network"""
+
         # Create lists to store metrics
         cvoa = []
         cvpre = []
@@ -271,66 +177,21 @@ class TrainSelection:
             print("\n******************************")
             print("Starting fold: " + str(ntrain))
             print("******************************")
-            indexes = np.arange(len(train))  # Prepare list of indexes for shuffling
-            T = np.ceil(1.0 * len(train) / self.batch_size).astype(np.int32)  # Compute the number of steps in an epoch
-            val_acc = 0
-            loss = 1
+            # Normalize using the training set
+            trainx, means, stds = utils.normalize(self.trainx[train])
+            valx = self.trainx[test]
 
-            filepath = ''
-            for epoch in range(self.epochs):  # Epoch loop
-                # Shuffle indexes when epoch begins
-                np.random.shuffle(indexes)
+            # Define path where the model will be saved
+            filepath = folder + "//selected" + self.method + str(self.nbands) + "-weights-" + self.classifier \
+                       + "-" + self.data + str(ntrain) + transform + self.th  # saves checkpoint
 
-                self.model.train()  # Sets training mode
-                running_loss = 0.0
-                for step in range(T):  # Batch loop
-                    # Generate indexes of the batch
-                    inds = indexes[step * self.batch_size:(step + 1) * self.batch_size]
-                    trainb = train[inds]
-
-                    # Get actual batches
-                    trainxb = from_numpy(self.trainx[trainb]).float().to(self.device)
-                    trainyb = from_numpy(self.train_y[trainb]).long().to(self.device)
-
-                    # zero the parameter gradients
-                    self.optimizer.zero_grad()
-
-                    # forward + backward + optimize
-                    outputs = self.model(trainxb)
-                    if self.classes == 2:
-                        trainyb = trainyb.unsqueeze(1)
-                        trainyb = trainyb.float()
-                    loss = self.criterion(outputs, trainyb)
-                    loss.backward()
-                    self.optimizer.step()
-
-                    # print statistics
-                    running_loss += loss.item()
-                    if step % 10 == 9:  # print every 200 mini-batches
-                        print('[%d, %5d] loss: %.5f' %
-                              (epoch + 1, step + 1, running_loss / 10))
-                        running_loss = 0.0
-
-                # Validation step
-                ytest, ypred = self.evaluate(test)
-                if self.classes == 2:
-                    ypred = np.array(ypred).reshape((len(ypred),))
-                correct_pred = (np.array(ypred) == ytest).astype(float)
-                oa = correct_pred.sum() / len(correct_pred) * 100  # Calculate accuracy
-
-                # Save model if accuracy improves
-                if oa >= val_acc:
-                    val_acc = oa
-                    filepath = folder + "//selected" + self.method + str(self.nbands) + "-weights-hyper3dnetLite-" \
-                               + self.data + str(ntrain) + transform + self.th  # saves checkpoint
-                    torch.save(self.model.state_dict(), filepath)  # saves checkpoint
-
-                print('VALIDATION: Epoch %d, loss: %.5f, acc: %.3f, best_acc: %.3f' %
-                      (epoch + 1, loss.item(), oa.item(), val_acc))
+            # Train the model using the current training-validation split
+            self.model.trainFold(trainx, self.train_y, train, self.batch_size, self.epochs, valx, test, means, stds,
+                                 filepath)
 
             # Calculate metrics for the ntrain-fold
-            self.model.load_state_dict(torch.load(filepath))  # loads checkpoint
-            ytest, ypred = self.evaluate(test)
+            self.model.loadModel(filepath)  # loads checkpoint
+            ytest, ypred = self.model.evaluateFold(valx, self.train_y, test, means, stds, self.batch_size)
             if self.classes == 2:
                 ypred = np.array(ypred).reshape((len(ypred),))
             correct_pred = (np.array(ypred) == ytest).astype(float)
@@ -343,14 +204,15 @@ class TrainSelection:
             cvrec.append(rec * 100)
             cvf1.append(f1 * 100)
 
-            # Reset all weights
-            self.model.apply(weight_reset)
+            # Reset all weights if training a CNN
+            if self.classifier == 'CNN':
+                self.model.model.apply(weight_reset)
 
             ntrain += 1
 
         # Save metrics in a txt file
-        file_name = folder + "//classification_report_hyper3dnetLite_" + self.method + str(self.nbands) + self.data \
-                    + transform + self.th + ".txt"
+        file_name = folder + "//classification_report_" + self.classifier + "_" + self.method + str(self.nbands) + \
+                    self.data + transform + self.th + ".txt"
         with open(file_name, 'w') as x_file:
             x_file.write("Overall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvoa)), float(np.std(cvoa))))
             x_file.write('\n')
@@ -393,66 +255,21 @@ class TrainSelection:
             print("\n******************************")
             print("Starting fold: " + str(ntrain))
             print("******************************")
-            indexes = np.arange(len(train))  # Prepare list of indexes for shuffling
-            T = np.ceil(1.0 * len(train) / self.batch_size).astype(np.int32)  # Compute the number of steps in an epoch
-            val_acc = 0
-            loss = 1
+            # Normalize using the training set
+            trainx, means, stds = utils.normalize(self.trainx[train])
+            valx = self.trainx[test]
 
-            filepath = ''
-            for epoch in range(self.epochs):  # Epoch loop
-                # Shuffle indexes when epoch begins
-                np.random.shuffle(indexes)
+            # Define path where the model will be saved
+            filepath = folder + "//selected5x2" + self.method + str(self.nbands) + "-weights-" + self.classifier \
+                       + "-" + self.data + str(ntrain) + transform + self.th  # saves checkpoint
 
-                self.model.train()  # Sets training mode
-                running_loss = 0.0
-                for step in range(T):  # Batch loop
-                    # Generate indexes of the batch
-                    inds = indexes[step * self.batch_size:(step + 1) * self.batch_size]
-                    trainb = np.array(train)[inds]
-
-                    # Get actual batches
-                    trainxb = from_numpy(self.trainx[trainb]).float().to(self.device)
-                    trainyb = from_numpy(self.train_y[trainb]).long().to(self.device)
-
-                    # zero the parameter gradients
-                    self.optimizer.zero_grad()
-
-                    # forward + backward + optimize
-                    outputs = self.model(trainxb)
-                    if self.classes == 2:
-                        trainyb = trainyb.unsqueeze(1)
-                        trainyb = trainyb.float()
-                    loss = self.criterion(outputs, trainyb)
-                    loss.backward()
-                    self.optimizer.step()
-
-                    # print statistics
-                    running_loss += loss.item()
-                    if step % 10 == 9:  # print every 200 mini-batches
-                        print('[%d, %5d] loss: %.5f' %
-                              (epoch + 1, step + 1, running_loss / 10))
-                        running_loss = 0.0
-
-                # Validation step
-                ytest, ypred = self.evaluate(test)
-                if self.classes == 2:
-                    ypred = np.array(ypred).reshape((len(ypred),))
-                correct_pred = (np.array(ypred) == ytest).astype(float)
-                oa = correct_pred.sum() / len(correct_pred) * 100  # Calculate accuracy
-
-                # Save model if accuracy improves
-                if oa >= val_acc:
-                    val_acc = oa
-                    filepath = folder + "//selected" + self.method + str(self.nbands) + "-weights-hyper3dnetLite-" \
-                               + self.data + str(ntrain) + transform + self.th  # saves checkpoint
-                    torch.save(self.model.state_dict(), filepath)  # saves checkpoint
-
-                print('VALIDATION: Epoch %d, loss: %.5f, acc: %.3f, best_acc: %.3f' %
-                      (epoch + 1, loss.item(), oa.item(), val_acc))
+            # Train the model using the current training-validation split
+            self.model.trainFold(trainx, self.train_y, train, self.batch_size, self.epochs, valx, test, means, stds,
+                                 filepath)
 
             # Calculate metrics for the ntrain-fold
-            self.model.load_state_dict(torch.load(filepath))  # loads checkpoint
-            ytest, ypred = self.evaluate(test)
+            self.model.loadModel(filepath)  # loads checkpoint
+            ytest, ypred = self.model.evaluateFold(valx, self.train_y, test, means, stds, self.batch_size)
             if self.classes == 2:
                 ypred = np.array(ypred).reshape((len(ypred),))
             correct_pred = (np.array(ypred) == ytest).astype(float)
@@ -465,14 +282,15 @@ class TrainSelection:
             cvrec.append(rec * 100)
             cvf1.append(f1 * 100)
 
-            # Reset all weights
-            self.model.apply(weight_reset)
+            # Reset all weights if training a CNN
+            if self.classifier == 'CNN':
+                self.model.model.apply(weight_reset)
 
             ntrain += 1
 
         # Save metrics in a txt file
-        file_name = folder + "//classification_report_hyper3dnetLite_" + self.method + str(self.nbands) + self.data \
-                    + transform + self.th + ".txt"
+        file_name = folder + "//classification_report5x2_" + self.classifier + "_" + self.method + str(self.nbands) + \
+                    self.data + transform + self.th + ".txt"
         with open(file_name, 'w') as x_file:
             x_file.write("Overall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvoa)), float(np.std(cvoa))))
             x_file.write('\n')
@@ -513,12 +331,16 @@ class TrainSelection:
             print("\n******************************")
             print("Validating fold: " + str(ntrain))
             print("******************************")
+            # Normalize using the training set
+            _, means, stds = utils.normalize(self.trainx[train])
+            valx = self.trainx[test]
+
             filepath = self.data + "//results//" + self.method + "//" + str(self.nbands) \
-                       + " bands//selected" + self.method + str(self.nbands) + "-weights-hyper3dnetLite-" + \
+                       + " bands//selected" + self.method + str(self.nbands) + "-weights-" + self.classifier + "-" + \
                        self.data + str(ntrain) + transform + self.th  # saves checkpoint
             # Calculate metrics for the ntrain-fold
-            self.model.load_state_dict(torch.load(filepath))  # loads checkpoint
-            ytest, ypred = self.evaluate(test)
+            self.model.loadModel(filepath)  # loads checkpoint
+            ytest, ypred = self.model.evaluateFold(valx, self.train_y, test, means, stds, self.batch_size)
             if self.classes == 2:
                 ypred = np.array(ypred).reshape((len(ypred),)).astype(np.int8)
             correct_pred = (np.array(ypred) == ytest).astype(float)
@@ -536,8 +358,8 @@ class TrainSelection:
             ntrain += 1
 
         # Save metrics in a txt file
-        file_name = folder + "//classification_report_hyper3dnetLite_" + self.method + str(self.nbands) + self.data \
-                    + transform + self.th + ".txt"
+        file_name = folder + "//classification_report_" + self.classifier + "_" + self.method + str(self.nbands) + \
+                    self.data + transform + self.th + ".txt"
         with open(file_name, 'w') as x_file:
             x_file.write("Overall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvoa)), float(np.std(cvoa))))
             x_file.write('\n')
@@ -596,12 +418,16 @@ class TrainSelection:
             print("\n******************************")
             print("Validating fold: " + str(ntrain))
             print("******************************")
+            # Normalize using the training set
+            _, means, stds = utils.normalize(self.trainx[train])
+            valx = self.trainx[test]
+
             filepath = self.data + "//results//" + self.method + "//" + str(self.nbands) \
-                       + " bands//selected" + self.method + str(self.nbands) + "-weights-hyper3dnetLite-" + \
+                       + " bands//selected" + self.method + str(self.nbands) + "-weights-" + self.classifier + "-" + \
                        self.data + str(ntrain) + transform + self.th  # saves checkpoint
             # Calculate metrics for the ntrain-fold
-            self.model.load_state_dict(torch.load(filepath))  # loads checkpoint
-            ytest, ypred = self.evaluate(test)
+            self.model.loadModel(filepath)  # loads checkpoint
+            ytest, ypred = self.model.evaluateFold(valx, self.train_y, test, means, stds, self.batch_size)
             if self.classes == 2:
                 ypred = np.array(ypred).reshape((len(ypred),)).astype(np.int8)
             correct_pred = (np.array(ypred) == ytest).astype(float)
@@ -618,9 +444,9 @@ class TrainSelection:
 
             ntrain += 1
 
-            # Save metrics in a txt file
-        file_name = folder + "//classification_report_hyper3dnetLite_" + self.method + str(self.nbands) + self.data \
-                    + transform + self.th + ".txt"
+        # Save metrics in a txt file
+        file_name = folder + "//classification_report5x2_" + self.classifier + "_" + self.method + str(self.nbands) + \
+                    self.data + transform + self.th + ".txt"
         with open(file_name, 'w') as x_file:
             x_file.write("Overall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvoa)), float(np.std(cvoa))))
             x_file.write('\n')
@@ -651,82 +477,12 @@ class TrainSelection:
             plt.savefig(folder + '//MatrixConfusion_' + self.method +
                         str(self.nbands) + self.data + transform + '.png', dpi=600)
 
-    def saliency(self):
-        """Estimate the saliency of each of the pre-selected spectral bands"""
-
-        np.random.seed(seed=7)  # Initialize seed to get reproducible results
-        torch.manual_seed(7)
-        torch.cuda.manual_seed(7)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-
-        SA = np.zeros((10, self.nbands,))  # Create array to store saliency metrics
-        ntrain = 1
-        for train, test in self.kfold.split(self.trainx, self.train_y):
-            print("\n******************************")
-            print("Analyzing fold: " + str(ntrain))
-            print("******************************")
-
-            # Load weights of the network trained with the pre-selected bands.
-            filepath = self.data + "//results//" + self.method + "//" + str(self.nbands) \
-                       + " bands//selected" + self.method + str(self.nbands) + "-weights-hyper3dnetLite-" + \
-                       self.data + str(ntrain) + self.th
-            self.model.load_state_dict(torch.load(filepath))  # load checkpoint
-
-            # Calculate losses
-            with torch.no_grad():
-                self.model.eval()
-                # Calculate loss using original data
-                ypred = self.model(from_numpy(self.trainx[test]).float().to(self.device))
-                trainyb = from_numpy(self.train_y[test]).long().to(self.device)
-                if self.classes == 2:
-                    trainyb = trainyb.unsqueeze(1)
-                    trainyb = trainyb.float()
-                loss1 = self.criterion(ypred, trainyb)
-                loss1 = loss1.item()
-                # Calculate loss removing one band
-                for nchannel in range(0, self.trainx.shape[2]):
-                    xtest = self.trainx[test].copy()
-                    # Zero-out selected band
-                    xtest[:, :, nchannel, :, :] = np.zeros(
-                        (self.trainx[test].shape[0], self.trainx.shape[1], self.trainx.shape[3], self.trainx.shape[4]))
-                    # Calculate new loss
-                    ypred = self.model(from_numpy(xtest).float().to(self.device))
-                    loss2 = self.criterion(ypred, trainyb)
-                    loss2 = loss2.item()
-                    # Calculate the saliency as the change in loss
-                    SA[ntrain - 1][nchannel] = np.sum(loss2 - loss1)
-
-            ntrain += 1
-
-        # Stores saliencies
-        with open(self.data + "//results//" + 'SA_' + self.data, 'wb') as fi:
-            pickle.dump(SA, fi)
-
-    def relevance(self):
-        """Apply LRP (not used in the paper) """
-        ntrain = 1
-        for train, test in self.kfold.split(self.trainx, self.train_y):
-            print("\n******************************")
-            print("Analyzing fold: " + str(ntrain))
-            print("******************************")
-
-            # Load weights of the network trained with the pre-selected bands.
-            filepath = self.data + "\\results\\" + self.method + "\\" + str(self.nbands) \
-                       + " bands\\selected" + self.method + str(self.nbands) + "-weights-hyper3dnetLite-" + \
-                       self.data + str(ntrain) + self.th
-            self.model.load_state_dict(torch.load(filepath))  # load checkpoint
-
-            # Get the relevances of each images in the training set
-            self.model.eval()
-            LRP(self.model, from_numpy(self.trainx[train]).float().to(self.device), device=self.device)
-
     def selection(self, select=6):
-
+        """Select the top k bands using the Greedy Spectral Selection method"""
         # Calculate the entropy of each pre-selected band
         entropies = [utils.entropy(self.trainx[:, :, i, :, :]) for i in range(len(self.indexes))]
 
-        # Sort the pre-selected bands according to their entropies (in decreasing order)
+        # Sort the pre-selected bands according to their entropy (in decreasing order)
         preselected = self.indexes.copy()
         pairs = list(tuple(zip(preselected, entropies)))
         pairs.sort(key=lambda x: x[1], reverse=True)
@@ -771,17 +527,10 @@ class TrainSelection:
         torch.cuda.manual_seed(7)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
         # Set model
-        models = Hyper3DNetLite(img_shape=(1, len(selection), self.windowSize, self.windowSize),
-                                classes=int(self.classes))
-        models.to(self.device)
-        if self.classes == 2:
-            criterion = nn.BCEWithLogitsLoss()
-        else:
-            class_count = [i for i in self.get_class_distributionKochia().values()]
-            class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
-            criterion = nn.CrossEntropyLoss(weight=class_weights.to(self.device))
-        optimizers = optim.Adadelta(models.parameters(), lr=1.0)
+        models = Model('CNN', self.data, self.device, len(selection), self.windowSize,
+                       self.train_y, self.classes)
 
         # Select bands
         trainx = np.zeros((self.trainx.shape[0], 1, len(selection), self.windowSize, self.windowSize))
@@ -794,55 +543,26 @@ class TrainSelection:
 
         # Train a simple classifier using individual bands
         for train, test in self.kfold.split(self.trainx, self.train_y):
-            indexes = np.arange(len(train))  # Prepare list of indexes for shuffling
-            T = np.ceil(1.0 * len(train) / self.batch_size).astype(np.int32)  # Compute the number of steps in an epoch
-            for epoch in range(150):  # Epoch loop
-                models.train()  # Sets training mode
-                for step in range(T):  # Batch loop
-                    # Generate indexes of the batch
-                    inds = indexes[step * self.batch_size:(step + 1) * self.batch_size]
-                    trainb = train[inds]
+            # Normalize using the training set
+            trainxn, means, stds = utils.normalize(trainx[train])
+            valx = trainx[test]
 
-                    # Get actual batches
-                    trainxb = from_numpy(trainx[trainb]).float().to(self.device)
-                    trainyb = from_numpy(self.train_y[trainb]).long().to(self.device)
-
-                    # zero the parameter gradients
-                    optimizers.zero_grad()
-
-                    # forward + backward + optimize
-                    outputs = models(trainxb)
-                    if self.classes == 2:
-                        trainyb = trainyb.unsqueeze(1)
-                        trainyb = trainyb.float()
-                    loss = criterion(outputs, trainyb)
-                    loss.backward()
-                    optimizers.step()
-
+            filepath = self.data + "//results//" + self.method + "//" + str(self.nbands) + " bands//temp"
+            # Train the model using the current training-validation split
+            models.trainFold(trainxn, self.train_y, train, self.batch_size, self.epochs, valx, test, means, stds,
+                                 filepath)
             # Validation step
-            ypred = []
-            with torch.no_grad():
-                models.eval()
-                Teva = np.ceil(1.0 * len(test) / self.batch_size).astype(np.int32)
-                for b in range(Teva):
-                    inds = test[b * self.batch_size:(b + 1) * self.batch_size]
-                    ypred_batch = models(from_numpy(trainx[inds]).float().to(self.device))
-                    if self.classes > 2:
-                        y_pred_softmax = torch.log_softmax(ypred_batch, dim=1)
-                        _, y_pred_tags = torch.max(y_pred_softmax, dim=1)
-                    else:
-                        y_pred_tags = torch.round(torch.sigmoid(ypred_batch))
-                    ypred = ypred + (y_pred_tags.cpu().numpy()).tolist()
-            ytest = from_numpy(self.train_y[test]).long().cpu().numpy()
-            if self.classes == 2:
-                ypred = np.array(ypred).reshape((len(ypred),))
+            models.loadModel(filepath)
+            ytest, ypred = models.evaluateFold(valx, self.train_y, test, means, stds, self.batch_size)
+            os.remove(filepath)  # Remove the file as it is no longer needed
             # Calculate F1 score
-            prec, rec, f1, support = precision_recall_fscore_support(ytest, ypred, average='macro')
+            _, _, f1, _ = precision_recall_fscore_support(ytest, ypred, average='macro')
             print("F1 score: " + str(f1))
-            models.apply(weight_reset)
+            models.model.apply(weight_reset)
             return f1
 
     def checkMulticollinearity(self, s=None):
+        """Calculate the VIF value of each selected band in s"""
         vifV = []
         nbands = len(s)
         for n, i in enumerate(s):
@@ -868,152 +588,156 @@ class TrainSelection:
 
 if __name__ == '__main__':
 
-    # Train using the bands selected by the other methods: Kochia
-    net = TrainSelection(nbands=6, method='GA', transform=False, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=6, method='GA', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=6, method='FNGBS', transform=False, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=6, method='FNGBS', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=6, method='OCF', transform=False, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=6, method='OCF', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=6, method='PLS', transform=False, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=6, method='PLS', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=10, method='GA', transform=False, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=10, method='GA', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=10, method='FNGBS', transform=False, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=10, method='FNGBS', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=10, method='OCF', transform=False, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=10, method='OCF', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=10, method='PLS', transform=False, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=10, method='PLS', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-
-    # Train using the bands selected by the other methods: Avocado dataset
-
-    net = TrainSelection(nbands=5, method='GA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado')
-    net.train()
-    net = TrainSelection(nbands=5, method='GA', transform=True, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado')
-    net.train()
-    net = TrainSelection(nbands=5, method='FNGBS', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado')
-    net.train()
-    net = TrainSelection(nbands=5, method='FNGBS', transform=True, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado')
+    net = TrainSelection(nbands=6, method='SSA', transform=False, average=True, batch_size=128,
+                         epochs=130, plot=True, data='Kochia')
     net.validate()
-    net = TrainSelection(nbands=5, method='OCF', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado')
-    net.train()
-    net = TrainSelection(nbands=5, method='OCF', transform=True, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado')
-    net.train()
-    net = TrainSelection(nbands=5, method='PLS', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado')
-    net.train()
-    net = TrainSelection(nbands=5, method='PLS', transform=True, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado')
-    net.train()
 
-    # Train using the selected bands by our method and the transformed data: Kochia and Avocado
-
-    net = TrainSelection(nbands=6, method='SSA', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=10, method='SSA', transform=True, average=True, batch_size=128,
-                         epochs=130, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=5, method='SSA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=150, plot=False, data='Avocado')
-    net.train5x2()
-
-    # Train the bands selected by out inter-redundancy band method (VIF:12-5): Kochia and Avocado
-
-    net = TrainSelection(nbands=19, method='SSA', transform=False, average=True, batch_size=128,
-                         epochs=100, plot=False, data='Kochia', vif=12, th='12')
-    net.train()
-    net = TrainSelection(nbands=21, method='SSA', transform=False, average=True, batch_size=128,
-                         epochs=100, plot=False, data='Kochia', vif=11, th='11')
-    net.train()
-    net = TrainSelection(nbands=17, method='SSA', transform=False, average=True, batch_size=128,
-                         epochs=100, plot=False, data='Kochia', vif=10, th='10')
-    net.train()
-    net = TrainSelection(nbands=15, method='SSA', transform=False, average=True, batch_size=128,
-                         epochs=120, plot=False, data='Kochia', vif=9, th='9')
-    net.train()
-    net = TrainSelection(nbands=16, method='SSA', transform=False, average=True, batch_size=128,
-                         epochs=120, plot=False, data='Kochia', vif=8, th='8')
-    net.train()
-    net = TrainSelection(nbands=16, method='SSA', transform=False, average=True, batch_size=128,
-                         epochs=120, plot=False, data='Kochia', vif=7, th='7')
-    net.train()
-    net = TrainSelection(nbands=15, method='SSA', transform=False, average=True, batch_size=128,
-                         epochs=120, plot=False, data='Kochia', vif=6, th='6')
-    net.train()
-    net = TrainSelection(nbands=10, method='SSA', transform=False, average=True, batch_size=128,
-                         epochs=150, plot=False, data='Kochia', vif=5, th='5')
-    net.train()
-
-    net = TrainSelection(nbands=10, method='SSA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado', vif=12, th='12')
-    net.train()
-    net = TrainSelection(nbands=8, method='SSA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado', vif=11, th='11')
-    net.train()
-    net = TrainSelection(nbands=9, method='SSA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado', vif=10, th='10')
-    net.train()
-    net = TrainSelection(nbands=8, method='SSA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado', vif=9, th='9')
-    net.train()
-    net = TrainSelection(nbands=9, method='SSA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado', vif=8, th='8')
-    net.train()
-    net = TrainSelection(nbands=7, method='SSA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado', vif=7, th='7')
-    net.train()
-    net = TrainSelection(nbands=7, method='SSA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado', vif=6, th='6')
-    net.train()
-    net = TrainSelection(nbands=5, method='SSA', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado', vif=5, th='5')
-    net.train()
-
-    # Train using all the bands: Kochia and Avocado
-
-    net = TrainSelection(nbands=150, method='FullSpec', transform=False, average=True, batch_size=128,
-                         epochs=100, plot=False, data='Kochia')
-    net.train()
-    net = TrainSelection(nbands=150, method='FullSpec', transform=False, average=True, batch_size=8, median=True,
-                         epochs=100, plot=False, data='Avocado')
-    net.train()
+    # Train using the bands selected by the other methods: Kochia
+    # net = TrainSelection(nbands=6, method='GA', transform=False, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=6, method='GA', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=6, method='FNGBS', transform=False, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=6, method='FNGBS', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=6, method='OCF', transform=False, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=6, method='OCF', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=6, method='PLS', transform=False, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=6, method='PLS', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='GA', transform=False, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='GA', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='FNGBS', transform=False, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='FNGBS', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='OCF', transform=False, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='OCF', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='PLS', transform=False, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='PLS', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    #
+    # # Train using the bands selected by the other methods: Avocado dataset
+    #
+    # net = TrainSelection(nbands=5, method='GA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado')
+    # net.train()
+    # net = TrainSelection(nbands=5, method='GA', transform=True, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado')
+    # net.train()
+    # net = TrainSelection(nbands=5, method='FNGBS', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado')
+    # net.train()
+    # net = TrainSelection(nbands=5, method='FNGBS', transform=True, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado')
+    # net.validate()
+    # net = TrainSelection(nbands=5, method='OCF', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado')
+    # net.train()
+    # net = TrainSelection(nbands=5, method='OCF', transform=True, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado')
+    # net.train()
+    # net = TrainSelection(nbands=5, method='PLS', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado')
+    # net.train()
+    # net = TrainSelection(nbands=5, method='PLS', transform=True, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado')
+    # net.train()
+    #
+    # # Train using the selected bands by our method and the transformed data: Kochia and Avocado
+    #
+    # net = TrainSelection(nbands=6, method='SSA', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=True, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='SSA', transform=True, average=True, batch_size=128,
+    #                      epochs=130, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=5, method='SSA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=150, plot=False, data='Avocado')
+    # net.train5x2()
+    #
+    # # Train the bands selected by out inter-redundancy band method (VIF:12-5): Kochia and Avocado
+    #
+    # net = TrainSelection(nbands=19, method='SSA', transform=False, average=True, batch_size=128,
+    #                      epochs=100, plot=False, data='Kochia', vif=12, th='12')
+    # net.train()
+    # net = TrainSelection(nbands=21, method='SSA', transform=False, average=True, batch_size=128,
+    #                      epochs=100, plot=False, data='Kochia', vif=11, th='11')
+    # net.train()
+    # net = TrainSelection(nbands=17, method='SSA', transform=False, average=True, batch_size=128,
+    #                      epochs=100, plot=False, data='Kochia', vif=10, th='10')
+    # net.train()
+    # net = TrainSelection(nbands=15, method='SSA', transform=False, average=True, batch_size=128,
+    #                      epochs=120, plot=False, data='Kochia', vif=9, th='9')
+    # net.train()
+    # net = TrainSelection(nbands=16, method='SSA', transform=False, average=True, batch_size=128,
+    #                      epochs=120, plot=False, data='Kochia', vif=8, th='8')
+    # net.train()
+    # net = TrainSelection(nbands=16, method='SSA', transform=False, average=True, batch_size=128,
+    #                      epochs=120, plot=False, data='Kochia', vif=7, th='7')
+    # net.train()
+    # net = TrainSelection(nbands=15, method='SSA', transform=False, average=True, batch_size=128,
+    #                      epochs=120, plot=False, data='Kochia', vif=6, th='6')
+    # net.train()
+    # net = TrainSelection(nbands=10, method='SSA', transform=False, average=True, batch_size=128,
+    #                      epochs=150, plot=False, data='Kochia', vif=5, th='5')
+    # net.train()
+    #
+    # net = TrainSelection(nbands=10, method='SSA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado', vif=12, th='12')
+    # net.train()
+    # net = TrainSelection(nbands=8, method='SSA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado', vif=11, th='11')
+    # net.train()
+    # net = TrainSelection(nbands=9, method='SSA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado', vif=10, th='10')
+    # net.train()
+    # net = TrainSelection(nbands=8, method='SSA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado', vif=9, th='9')
+    # net.train()
+    # net = TrainSelection(nbands=9, method='SSA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado', vif=8, th='8')
+    # net.train()
+    # net = TrainSelection(nbands=7, method='SSA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado', vif=7, th='7')
+    # net.train()
+    # net = TrainSelection(nbands=7, method='SSA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado', vif=6, th='6')
+    # net.train()
+    # net = TrainSelection(nbands=5, method='SSA', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado', vif=5, th='5')
+    # net.train()
+    #
+    # # Train using all the bands: Kochia and Avocado
+    #
+    # net = TrainSelection(nbands=150, method='FullSpec', transform=False, average=True, batch_size=128,
+    #                      epochs=100, plot=False, data='Kochia')
+    # net.train()
+    # net = TrainSelection(nbands=150, method='FullSpec', transform=False, average=True, batch_size=8, median=True,
+    #                      epochs=100, plot=False, data='Avocado')
+    # net.train()

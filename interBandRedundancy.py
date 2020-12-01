@@ -157,9 +157,8 @@ if __name__ == '__main__':
         medianF = True
         batch = 8
 
-    interB = InterBandRedundancy(dataset=data, flag_average=average, normalize=False)
-    interB.plotSample()
-    th = 5  # VIF threshold
+    interB = InterBandRedundancy(dataset=data, flag_average=average, normalize=True)
+    th = 12  # VIF threshold
 
     for t in reversed(range(5, th + 1)):  # Test values from 10 to 5
         print("VIF THRESHOLD: " + str(t))

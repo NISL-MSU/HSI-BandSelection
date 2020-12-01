@@ -243,6 +243,25 @@ def load_data(flag_average=True, median=False, normalization=True, nbands=np.inf
     return train_x, train_y, indexes
 
 
+def normalize(trainx):
+    """Normalize and returns the calculated means and stds for each band"""
+    means = np.zeros((trainx.shape[2], 1))
+    stds = np.zeros((trainx.shape[2], 1))
+    for n in range(trainx.shape[2]):
+        means[n, ] = np.mean(trainx[:, :, n, :, :])
+        stds[n, ] = np.std(trainx[:, :, n, :, :])
+        trainx[:, :, n, :, :] = (trainx[:, :, n, :, :] - means[n, ]) / (stds[n, ])
+    return trainx, means, stds
+
+
+def applynormalize(testx, means, stds):
+    """Apply normalization based on previous calculated means and stds"""
+    testxn = testx.copy()
+    for n in range(testx.shape[2]):
+        testxn[:, :, n, :, :] = (testx[:, :, n, :, :] - means[n, ]) / (stds[n, ])
+    return testxn
+
+
 def vif(inputX, printO=False, indexes=None):
     VIF = np.zeros((inputX.shape[3]))
 
@@ -301,3 +320,60 @@ def entropy(labels, base=2):
     value, counts = np.unique(labels, return_counts=True)
     norm_counts = counts / counts.sum()
     return -(norm_counts * np.log(norm_counts)/np.log(base)).sum()
+
+
+def get_class_distributionKochia(train_y):
+    """Get number of samples per class"""
+    count_dict = {"0": 0, "1": 0, "2": 0}
+
+    for i in train_y:
+        if i == 0:
+            count_dict['0'] += 1
+        elif i == 1:
+            count_dict['1'] += 1
+        elif i == 2:
+            count_dict['2'] += 1
+
+    return count_dict
+
+
+def get_class_distributionIP(train_y):
+    """Get number of samples per class"""
+    count_dict = {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0, "11": 0,
+                  "12": 0, "13": 0, "14": 0, "15": 0}
+
+    for i in train_y:
+        if i == 0:
+            count_dict['0'] += 1
+        elif i == 1:
+            count_dict['1'] += 1
+        elif i == 2:
+            count_dict['2'] += 1
+        if i == 3:
+            count_dict['3'] += 1
+        elif i == 4:
+            count_dict['4'] += 1
+        elif i == 5:
+            count_dict['5'] += 1
+        if i == 6:
+            count_dict['6'] += 1
+        elif i == 7:
+            count_dict['7'] += 1
+        elif i == 8:
+            count_dict['8'] += 1
+        if i == 9:
+            count_dict['9'] += 1
+        elif i == 10:
+            count_dict['10'] += 1
+        elif i == 11:
+            count_dict['11'] += 1
+        if i == 12:
+            count_dict['12'] += 1
+        elif i == 13:
+            count_dict['13'] += 1
+        elif i == 14:
+            count_dict['14'] += 1
+        elif i == 15:
+            count_dict['15'] += 1
+
+    return count_dict
