@@ -60,6 +60,27 @@ class Hyper3DNetLite(nn.Module, ABC):
         return x
 
 
+class WeedANN(nn.Module, ABC):
+    def __init__(self, img_shape=(10,), classes=2):
+        super(WeedANN, self).__init__()
+        self.classes = classes
+        self.img_shape = img_shape
+
+        self.fc1 = nn.Sequential(nn.Linear(in_features=img_shape[0], out_features=500), nn.ReLU(), nn.BatchNorm1d(500))
+        self.fc2 = nn.Sequential(nn.Linear(in_features=500, out_features=500), nn.ReLU(), nn.BatchNorm1d(500))
+
+        if classes == 2:
+            self.fc3 = nn.Linear(500, 1)
+        else:
+            self.fc3 = nn.Linear(500, self.classes)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = self.fc3(x)
+        return x
+
+
 class SimpleNet(nn.Module, ABC):
     def __init__(self, img_shape=(50, 25, 25), classes=2):
         super(SimpleNet, self).__init__()

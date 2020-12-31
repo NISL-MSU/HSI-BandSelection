@@ -7,8 +7,14 @@ import pickle
 import cv2
 from readSAT import *
 from scipy import stats
+import torch
 
 # import matplotlib.pyplot as plt
+np.random.seed(seed=7)  # Initialize seed to get reproducible results
+torch.manual_seed(7)
+torch.cuda.manual_seed(7)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 
 def generic_gaussians(indices, bandwidth):
@@ -135,7 +141,7 @@ def load_data(flag_average=True, median=False, normalization=True, nbands=np.inf
                 if nbands == 6:
                     indexes = [1, 18, 43, 68, 81, 143]
                 elif nbands == 10:
-                    indexes = [0, 4, 18, 31, 43, 63, 68, 74, 79, 146]
+                    indexes = [2, 5, 18, 31, 42, 54, 68, 74, 79, 143]
                 elif nbands == 19 and vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
                     indexes = [2, 5, 18, 31, 42, 54, 65, 68, 74, 79, 85, 89, 103, 106, 128, 132, 137, 143, 147]
                 elif nbands == 21 and vifv == 11:  # Selected by the Inter-band redundancy method. VIF: 11.
@@ -171,7 +177,7 @@ def load_data(flag_average=True, median=False, normalization=True, nbands=np.inf
                 if nbands == 6:
                     indexes = [35, 73, 88, 129, 134, 140]
                 elif nbands == 10:
-                    indexes = [4, 23, 35, 69, 73, 88, 129, 134, 140, 147]
+                    indexes = [23, 31, 35, 69, 73, 120, 129, 134, 140, 147]
 
         elif data == "Avocado":  # Selects indexes for the Avocado dataset
             if method == 'SSA':
@@ -205,6 +211,23 @@ def load_data(flag_average=True, median=False, normalization=True, nbands=np.inf
             elif method == 'PLS':
                 if nbands == 5:
                     indexes = [0, 74, 95, 135, 140]
+
+        elif data == "IP":  # Selects indexes for the Avocado dataset
+            if method == 'SSA':
+                if nbands == 5:
+                    indexes = [11, 25, 34, 39, 67]
+            elif method == 'FNGBS':
+                if nbands == 5:
+                    indexes = [28, 70, 92, 107, 129]
+            elif method == 'OCF':
+                if nbands == 5:
+                    indexes = [16, 28, 50, 67, 90]
+            elif method == 'GA':
+                if nbands == 5:
+                    indexes = [17, 31, 55, 75, 119]
+            elif method == 'PLS':
+                if nbands == 5:
+                    indexes = [4, 27, 83, 96, 148]
 
         if selection is not None:
             indexes = selection
@@ -245,20 +268,21 @@ def load_data(flag_average=True, median=False, normalization=True, nbands=np.inf
 
 def normalize(trainx):
     """Normalize and returns the calculated means and stds for each band"""
+    trainxn = trainx.copy()
     means = np.zeros((trainx.shape[2], 1))
     stds = np.zeros((trainx.shape[2], 1))
     for n in range(trainx.shape[2]):
-        means[n, ] = np.mean(trainx[:, :, n, :, :])
-        stds[n, ] = np.std(trainx[:, :, n, :, :])
-        trainx[:, :, n, :, :] = (trainx[:, :, n, :, :] - means[n, ]) / (stds[n, ])
-    return trainx, means, stds
+        means[n, ] = np.mean(trainxn[:, :, n, :, :])
+        stds[n, ] = np.std(trainxn[:, :, n, :, :])
+        trainxn[:, :, n, :, :] = (trainxn[:, :, n, :, :] - means[n, ]) / (stds[n, ])
+    return trainxn, means, stds
 
 
 def applynormalize(testx, means, stds):
     """Apply normalization based on previous calculated means and stds"""
     testxn = testx.copy()
     for n in range(testx.shape[2]):
-        testxn[:, :, n, :, :] = (testx[:, :, n, :, :] - means[n, ]) / (stds[n, ])
+        testxn[:, :, n, :, :] = (testxn[:, :, n, :, :] - means[n, ]) / (stds[n, ])
     return testxn
 
 

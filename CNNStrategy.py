@@ -5,10 +5,19 @@ from networks import *
 import numpy as np
 import utils
 import torch
+import random
+
+np.random.seed(seed=7)  # Initialize seed to get reproducible results
+random.seed(7)
+torch.manual_seed(7)
+torch.cuda.manual_seed(7)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 
 class CNNObject:
     """Helper class used to store the main information of a CNN for training"""
+
     def __init__(self, model, criterion, optimizer):
         self.network = model
         self.criterion = criterion
@@ -18,11 +27,10 @@ class CNNObject:
 class CNNStrategy(ModelStrategy):
 
     def defineModel(self, device, data, nbands, windowSize, classes, train_y):
+        print(data)
         """Override model declaration method"""
-        model = Hyper3DNetLite(img_shape=(1, nbands, windowSize, windowSize), classes=int(classes))
+        model = Hyper3DNetLite(img_shape=(1, nbands, windowSize, windowSize), classes=int(classes), data=data)
         model.to(device)
-        # Prints summary of the model
-        summary(model, (1, nbands, windowSize, windowSize))
         # Training parameters
         if classes == 2:
             criterion = nn.BCEWithLogitsLoss()
@@ -40,14 +48,24 @@ class CNNStrategy(ModelStrategy):
         return CNNObject(model, criterion, optimizer)
 
     def trainFoldStrategy(self, model, trainx, train_y, train, batch_size, classes, device,
-                          epochs, valx, test, means, stds, filepath):
+                          epochs, valx, test, means, stds, filepath, printProcess):
+        np.random.seed(seed=7)  # Initialize seed to get reproducible results
+        random.seed(7)
+        torch.manual_seed(7)
+        torch.cuda.manual_seed(7)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+        # Prints summary of the modelif printProcess:      
+        if printProcess:
+            summary(model.network, (1, trainx.shape[2], trainx.shape[3], trainx.shape[4]))
+            
         indexes = np.arange(len(train))  # Prepare list of indexes for shuffling
         T = np.ceil(1.0 * len(train) / batch_size).astype(np.int32)  # Compute the number of steps in an epoch
         val_acc = 0
         loss = 1
         for epoch in range(epochs):  # Epoch loop
             # Shuffle indexes when epoch begins
-            np.random.shuffle(indexes)
 
             model.network.train()  # Sets training mode
             running_loss = 0.0
@@ -74,13 +92,13 @@ class CNNStrategy(ModelStrategy):
 
                 # print statistics
                 running_loss += loss.item()
-                if step % 10 == 9:  # print every 200 mini-batches
+                if step % 10 == 9 and printProcess:  # print every 10 mini-batches
                     print('[%d, %5d] loss: %.5f' %
                           (epoch + 1, step + 1, running_loss / 10))
                     running_loss = 0.0
 
             # Validation step
-            ytest, ypred = self.evaluateFoldStrategy(model.network, valx, train_y, test,
+            ytest, ypred = self.evaluateFoldStrategy(model, valx, train_y, test,
                                                      means, stds, batch_size, classes, device)
             if classes == 2:
                 ypred = np.array(ypred).reshape((len(ypred),))
@@ -92,11 +110,11 @@ class CNNStrategy(ModelStrategy):
                 val_acc = oa
                 torch.save(model.network.state_dict(), filepath)  # saves checkpoint
 
-            print('VALIDATION: Epoch %d, loss: %.5f, acc: %.3f, best_acc: %.3f' %
-                  (epoch + 1, loss.item(), oa.item(), val_acc))
+            if printProcess:
+                print('VALIDATION: Epoch %d, loss: %.5f, acc: %.3f, best_acc: %.3f' %
+                      (epoch + 1, loss.item(), oa.item(), val_acc))
 
     def evaluateFoldStrategy(self, model, valx, train_y, test, means, stds, batch_size, classes, device):
-        # Normalize the validation set based on the previous statistics
         valxn = utils.applynormalize(valx, means, stds)
         ypred = []
         with torch.no_grad():
@@ -118,3 +136,4 @@ class CNNStrategy(ModelStrategy):
 
     def loadModelStrategy(self, model, path):
         model.network.load_state_dict(torch.load(path))
+        return model

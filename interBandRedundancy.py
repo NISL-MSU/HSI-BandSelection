@@ -146,8 +146,10 @@ class InterBandRedundancy:
 
 if __name__ == '__main__':
 
-    data = 'Kochia'  # Specify the dataset to be analyzed
+    data = 'IP'  # Specify the dataset to be analyzed
+    classifier = 'CNN'  #
     nbands = 5  # Specify the number of desired bands
+    size = 100
     average = True
     medianF = False
     batch = 128
@@ -157,8 +159,17 @@ if __name__ == '__main__':
         medianF = True
         batch = 8
 
+    sizestr = ''
+    if size != 100:
+        sizestr = str(size)
+
+    epochs = 130
+    if classifier == "ANN":
+        epochs = 90
+        batch = 2048  # 1024 for Kochia
+
     interB = InterBandRedundancy(dataset=data, flag_average=average, normalize=True)
-    th = 12  # VIF threshold
+    th = 7  # VIF threshold
 
     for t in reversed(range(5, th + 1)):  # Test values from 10 to 5
         print("VIF THRESHOLD: " + str(t))
@@ -166,8 +177,8 @@ if __name__ == '__main__':
         # Check if the analysis have been made before
         filepreselected = data + "//results//SSA//preselection_" + data + "_VIF" + str(t)
         filedistances = data + "//results//SSA//distances_" + data + "_VIF" + str(t)
-        fileselected = data + "//results//SSA//" + str(nbands) + " bands//selection_" + data + str(nbands) + \
-                       "bands_VIF" + str(t) + ".txt"
+        fileselected = data + "//results//SSA//" + str(nbands) + " bands//selection_" + data + sizestr + classifier + \
+                       str(nbands) + "bands_VIF" + str(t) + ".txt"
 
         if os.path.exists(filepreselected):
             with open(filepreselected, 'rb') as f:
@@ -193,25 +204,27 @@ if __name__ == '__main__':
                 pickle.dump(dist, fi)
 
         # Get the k-selected bands based on IE
-        net = TrainSelection(method='SSA', transform=False, average=average, batch_size=128, epochs=150,
-                             plot=False, selection=indexes, th=str(t), data=data, median=medianF)
+        net = TrainSelection(method='SSA', classifier=classifier, transform=False, average=average, batch_size=batch,
+                             epochs=epochs, plot=False, selection=indexes, th=str(t), data=data, median=medianF,
+                             size=size)
         index, entr = net.selection(select=nbands)
         # Save selected bands as txt file
         with open(fileselected, 'w') as x_file:
             x_file.write(str(index))
         # Save scores of each of the bands
-        with open(data + "//results//SSA//bandScores_" + data + "_VIF" + str(t), 'wb') as fi:
+        with open(data + "//results//SSA//bandScores_" + data + sizestr + classifier + "_VIF" + str(t), 'wb') as fi:
             pickle.dump(entr, fi)
 
         # Train selected bands if the selected set of bands was not trained before
-        if not os.path.exists(data + "//results//SSA//" + str(nbands) +
-                              " bands//classification_report_hyper3dnetLiteSSA" + str(nbands) + data + str(t) + ".txt"):
+        if not os.path.exists(data + "//results//SSA//" + str(nbands) + " bands//classification_report5x2_" + sizestr +
+                              classifier + "SSA" + str(nbands) + data + str(t) + ".txt"):
             np.random.seed(seed=7)  # Re-Initialize seed to get reproducible results
             torch.manual_seed(7)
             torch.cuda.manual_seed(7)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
-            net = TrainSelection(method='SSA', transform=False, average=average, batch_size=batch, epochs=150,
-                                 median=medianF, plot=False, selection=index, th=str(t), data=data)
+            net = TrainSelection(method='SSA', classifier=classifier, transform=False, average=average,
+                                 batch_size=batch, epochs=epochs, median=medianF, plot=False, selection=index,
+                                 th=str(t), data=data, size=size)
             net.train()
-            net.validate()  # Store the evaluation metrics
+            # net.validate()  # Store the evaluation metrics

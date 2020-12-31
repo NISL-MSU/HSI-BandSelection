@@ -1,4 +1,7 @@
 from CNNStrategy import CNNStrategy
+from SVMStrategy import SVMStrategy
+from RFStrategy import RFStrategy
+from ANNStrategy import ANNStrategy
 import sys
 
 
@@ -6,7 +9,7 @@ class Model:
 
     def __init__(self, classifier, data, device, nbands, windowSize, train_y, classes):
         """Create a ML object used to train the HSI datasets.
-        @param classifier: Type of classifier. Options: CNN, SVM, or RF.
+        @param classifier: Type of classifier. Options: CNN, ANN, SVM, or RF.
         @param data: Type of data. Options: Kochia, Avocado, IP.
         @param device: Type of device used for training (Used for the CNN).
         @param nbands: Number of selected spectral ban.
@@ -25,17 +28,19 @@ class Model:
         if classifier == 'CNN':
             self.strategy = CNNStrategy()
         elif classifier == 'SVM':
-            self.strategy = CNNStrategy()
+            self.strategy = SVMStrategy()
         elif classifier == 'RF':
-            self.strategy = CNNStrategy()
+            self.strategy = RFStrategy()
+        elif classifier == 'ANN':
+            self.strategy = ANNStrategy()
         else:
-            sys.exit('The only available classifiers are: CNN, SVM, and RF.')
+            sys.exit('The only available classifiers are: CNN, ANN, SVM, and RF.')
 
         # Define the model using the selected strategy
         self.model = self.strategy.defineModel(self.device, self.data, self.nbands,
                                                self.windowSize, self.classes, train_y)
 
-    def trainFold(self, trainx, train_y, train, batch_size, epochs, valx, test, means, stds, filepath):
+    def trainFold(self, trainx, train_y, train, batch_size, epochs, valx, test, means, stds, filepath, printProc=True):
         """Train the network given a train-validation split
         @param trainx: Training set.
         @param train_y: Target data of the entire dataset (training + validation sets).
@@ -47,9 +52,10 @@ class Model:
         @param means: Mean of each spectral band calculated in the training set.
         @param stds: Standard deviation of each spectral band calculated in the training set.
         @param filepath: Path used to store the trained model.
+        @param printProc: If True, prints all the training process
         """
         self.strategy.trainFoldStrategy(self.model, trainx, train_y, train, batch_size, self.classes, self.device,
-                                        epochs, valx, test, means, stds, filepath)
+                                        epochs, valx, test, means, stds, filepath, printProc)
 
     def evaluateFold(self, valx, train_y, test, means, stds, batch_size):
         """Return the numpy target and predicted vectors as numpy vectors.
@@ -67,4 +73,4 @@ class Model:
         """Load a saved model
         @param path: File path with the saved model.
         """
-        self.strategy.loadModelStrategy(self.model, path)
+        self.model = self.strategy.loadModelStrategy(self.model, path)

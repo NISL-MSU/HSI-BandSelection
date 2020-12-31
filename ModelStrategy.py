@@ -9,7 +9,7 @@ class ModelStrategy(abc.ABC):
 
     @abc.abstractmethod
     def trainFoldStrategy(self, model, trainx, train_y, train, batch_size, classes, device,
-                          epochs, valx, test, means, stds, filepath):
+                          epochs, valx, test, means, stds, filepath, printProcess):
         pass
 
     @abc.abstractmethod
