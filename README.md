@@ -45,7 +45,7 @@ This repository contains the following scripts:
         
 * `network.py`: Contains all the network architectures used in this work.
 * `utils.py`: Additional methods used to transform the data and calculate the metrics.     
-* `ModelStrategy.py`: Class used to train and validate a classifier on the selected dataset type. The parameters of the constructor of this class are:
+* `ModelStrategy.py`: Interface class used to train and validate a classifier on the selected dataset type. The parameters of the constructor of this class are:
         
         *classifier: Type of classifier. Options: CNN, ANN, SVM, or RF.
         *data: Type of data. Options: Kochia, Avocado, IP.
