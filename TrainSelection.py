@@ -543,7 +543,7 @@ class TrainSelection:
         # Choose seeds for each iteration
         seeds = [13, 51, 137, 24659, 347, 436, 123, 64, 958, 234]
         # Train a simple classifier using individual bands
-#        for train, test in self.kfold.split(trainx, self.train_y):
+        #        for train, test in self.kfold.split(trainx, self.train_y):
         for i_s, seed in enumerate(seeds):
             # Split the dataset in 2 parts with the current seed
             train, test = train_test_split(range(len(self.trainx)), test_size=0.50, random_state=seed,
@@ -601,106 +601,13 @@ class TrainSelection:
 
 if __name__ == '__main__':
 
-    net = TrainSelection(nbands=10, classifier='CNN', method='SSA', transform=True, average=True, data='Kochia',
-                         batch_size=128, epochs=70, plot=True, selection=[2, 5, 18, 31, 42, 54, 68, 74, 79, 143])
-    net.validate()
-
-    # net = TrainSelection(nbands=5, classifier='CNN', method='SSA', transform=False, average=False, data='IP',
-    #                      batch_size=128, epochs=70, vif=9, th='9', plot=True, selection=[17, 25, 34, 46, 67])
-    # net.validate()
-    # net = TrainSelection(nbands=5, classifier='CNN', method='OCF', transform=False, average=False, data='IP',
-    #                      batch_size=128, epochs=70, plot=True, selection=[16, 28, 50, 67, 90])
-    # net.validate()
-    # net = TrainSelection(nbands=5, classifier='CNN', method='FNGBS', transform=False, average=False, data='IP',
-    #                      batch_size=128, epochs=70, plot=True, selection=[28, 70, 92, 107, 129])
-    # net.validate()
-    # net = TrainSelection(nbands=5, classifier='CNN', method='GA', transform=False, average=False, data='IP',
-    #                      batch_size=128, epochs=70, plot=True, selection=)
-    # net.validate()
-    # net = TrainSelection(nbands=5, classifier='CNN', method='PLS', transform=False, average=False, data='IP',
-    #                      batch_size=128, epochs=70, plot=True, selection=[4, 27, 83, 96, 148])
-    # net.validate()
-    
-#    # Train using the bands selected by the other methods: Kochia
-#    methods = ['GA', 'FNGBS', 'OCF', 'PLS']
-#    transforms = [False, True]
-#    bands = [6, 10]
-#    for ba in bands:
-#        for me in methods:
-#            for tr in transforms:
-#                net = TrainSelection(nbands=ba, method=me, transform=tr, average=True, batch_size=128,
-#                                     epochs=130, plot=False, data='Kochia')
-#                net.train()
-
-# # Train using the selected bands by our method and the transformed data: Kochia and Avocado
-#
-# net = TrainSelection(nbands=6, method='SSA', transform=True, average=True, batch_size=128,
-#                      epochs=130, plot=True, data='Kochia')
-# net.train()
-# net = TrainSelection(nbands=10, method='SSA', transform=True, average=True, batch_size=128,
-#                      epochs=130, plot=False, data='Kochia')
-# net.train()
-# net = TrainSelection(nbands=5, method='SSA', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=150, plot=False, data='Avocado')
-# net.train5x2()
-#
-# # Train the bands selected by out inter-redundancy band method (VIF:12-5): Kochia and Avocado
-#
-# net = TrainSelection(nbands=19, method='SSA', transform=False, average=True, batch_size=128,
-#                      epochs=100, plot=False, data='Kochia', vif=12, th='12')
-# net.train()
-# net = TrainSelection(nbands=21, method='SSA', transform=False, average=True, batch_size=128,
-#                      epochs=100, plot=False, data='Kochia', vif=11, th='11')
-# net.train()
-# net = TrainSelection(nbands=17, method='SSA', transform=False, average=True, batch_size=128,
-#                      epochs=100, plot=False, data='Kochia', vif=10, th='10')
-# net.train()
-# net = TrainSelection(nbands=15, method='SSA', transform=False, average=True, batch_size=128,
-#                      epochs=120, plot=False, data='Kochia', vif=9, th='9')
-# net.train()
-# net = TrainSelection(nbands=16, method='SSA', transform=False, average=True, batch_size=128,
-#                      epochs=120, plot=False, data='Kochia', vif=8, th='8')
-# net.train()
-# net = TrainSelection(nbands=16, method='SSA', transform=False, average=True, batch_size=128,
-#                      epochs=120, plot=False, data='Kochia', vif=7, th='7')
-# net.train()
-# net = TrainSelection(nbands=15, method='SSA', transform=False, average=True, batch_size=128,
-#                      epochs=120, plot=False, data='Kochia', vif=6, th='6')
-# net.train()
-# net = TrainSelection(nbands=10, method='SSA', transform=False, average=True, batch_size=128,
-#                      epochs=150, plot=False, data='Kochia', vif=5, th='5')
-# net.train()
-#
-# net = TrainSelection(nbands=10, method='SSA', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=100, plot=False, data='Avocado', vif=12, th='12')
-# net.train()
-# net = TrainSelection(nbands=8, method='SSA', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=100, plot=False, data='Avocado', vif=11, th='11')
-# net.train()
-# net = TrainSelection(nbands=9, method='SSA', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=100, plot=False, data='Avocado', vif=10, th='10')
-# net.train()
-# net = TrainSelection(nbands=8, method='SSA', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=100, plot=False, data='Avocado', vif=9, th='9')
-# net.train()
-# net = TrainSelection(nbands=9, method='SSA', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=100, plot=False, data='Avocado', vif=8, th='8')
-# net.train()
-# net = TrainSelection(nbands=7, method='SSA', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=100, plot=False, data='Avocado', vif=7, th='7')
-# net.train()
-# net = TrainSelection(nbands=7, method='SSA', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=100, plot=False, data='Avocado', vif=6, th='6')
-# net.train()
-# net = TrainSelection(nbands=5, method='SSA', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=100, plot=False, data='Avocado', vif=5, th='5')
-# net.train()
-#
-# # Train using all the bands: Kochia and Avocado
-#
-# net = TrainSelection(nbands=150, method='FullSpec', transform=False, average=True, batch_size=128,
-#                      epochs=100, plot=False, data='Kochia')
-# net.train()
-# net = TrainSelection(nbands=150, method='FullSpec', transform=False, average=True, batch_size=8, median=True,
-#                      epochs=100, plot=False, data='Avocado')
-# net.train()
+    # Train using the bands selected by the other methods: Kochia
+    methods = ['GA', 'FNGBS', 'OCF', 'PLS']
+    transforms = [False, True]
+    bands = [6, 10]
+    for ba in bands:
+        for me in methods:
+            for tr in transforms:
+                net = TrainSelection(nbands=ba, method=me, transform=tr, average=True, batch_size=128,
+                                     epochs=130, plot=False, data='Kochia')
+                net.train()
