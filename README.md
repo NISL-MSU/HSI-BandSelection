@@ -44,4 +44,39 @@ This repository contains the following scripts:
         *median: If True, perform a median filtering on the spectral bands.
         
 * `network.py`: Contains all the network architectures used in this work.
-* `utils.py`: Additional methods used to transform the data and calculate the metrics.
+* `utils.py`: Additional methods used to transform the data and calculate the metrics.     
+* `ModelStrategy.py`: Class used to train and validate a classifier on the selected dataset type. The parameters of the constructor of this class are:
+        
+        *classifier: Type of classifier. Options: CNN, ANN, SVM, or RF.
+        *data: Type of data. Options: Kochia, Avocado, IP.
+        *device: Type of device used for training (Used for the CNN).
+        *nbands: Number of selected spectral ban.
+        *windowSize: Window size (Used for the CNN).
+        *train_y: Target data.
+        *classes: Number of classes.
+
+   The parameters of the `trainFold` method are:
+        
+        *trainx: Training set.
+        *train_y: Target data of the entire dataset (training + validation sets).
+        *train: List of training indexes
+        *batch_size: Size of the mini-batch (Used for the CNN).
+        *epochs: Number of epochs used to train a CNN.
+        *valx: Validation set.
+        *test: List of test indexes
+        *means: Mean of each spectral band calculated in the training set.
+        *stds: Standard deviation of each spectral band calculated in the training set.
+        *filepath: Path used to store the trained model.
+        *printProc: If True, prints all the training process
+        
+
+   The parameters of the `evaluateFold` method are:
+        
+        *valx: Validation set.
+        *train_y: Target data.
+        *test: List of test indexes
+        *means: Mean of each spectral band calculated in the training set.
+        *stds: Standard deviation of each spectral band calculated in the training set.
+        *batch_size: Size of the mini-batch (Used for the CNN).
+   
+   
