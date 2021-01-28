@@ -21,7 +21,8 @@ our method produces more suitable results for a multispectral sensor design.
 We used an in-greenhouse controlled HSI dataset of Kochia leaves in order to classify three different herbicide-resistance levels (herbicide-susceptible, dicamba-resistant, and glyphosate-resistant). 
 A total of 76 images of kochia with varying spatial resolution and 300 spectral bands ranging from 387.12 to 1023.5 nm were captured. From these images, which were previously calibrated and converted to reflectance values, we manually extracted 6,316 25x25 pixel overlapping patches. The Kochia dataset can be downloaded from [here](https://montana.box.com/v/kochiadataset).
 
-Furthermore, we used a well-known remote sensing HSI dataset: Indian Pines (IP), which can be downloaded from [here](http://www.ehu.eus/ccwintco/uploads/6/67/Indian_pines_corrected.mat) or from this [repository](https://github.com/GiorgioMorales/HSI-BandSelection/tree/master/Data). 
+Furthermore, we used two well-known remote sensing HSI dataset: Indian Pines (IP) and
+Salinas (SA), which can be downloaded from [here](http://www.ehu.eus/ccwintco/index.php?title=Hyperspectral_Remote_Sensing_Scenes) or from the "Data" folder from this [repository](https://github.com/GiorgioMorales/HSI-BandSelection/tree/master/Data).
 
 ## Usage
 
@@ -47,8 +48,8 @@ This repository contains the following scripts:
 * `utils.py`: Additional methods used to transform the data and calculate the metrics.     
 * `ModelStrategy.py`: Interface class used to train and validate a classifier on the selected dataset type. The parameters of the constructor of this class are:
         
-        *classifier: Type of classifier. Options: CNN, ANN, SVM, or RF.
-        *data: Type of data. Options: Kochia, Avocado, IP.
+        *classifier: Type of classifier. Options: 'CNN', 'ANN', 'SVM', or 'RF'.
+        *data: Type of data. Options: 'Kochia', 'Avocado', 'IP', or 'SA'.
         *device: Type of device used for training (Used for the CNN).
         *nbands: Number of selected spectral ban.
         *windowSize: Window size (Used for the CNN).
