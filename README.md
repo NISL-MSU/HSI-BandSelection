@@ -1,4 +1,4 @@
-# Hyperspectral Band Selection: Greedy Spectral Selection 
+# Hyperspectral Band Selection for Multispectral Image Classification with Convolutional Networks
 
 ## Description
 
