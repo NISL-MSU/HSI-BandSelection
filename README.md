@@ -28,7 +28,7 @@ Salinas (SA), which can be downloaded from [here](http://www.ehu.eus/ccwintco/in
 
 This repository contains the following scripts:
 
-* `interBandRedundancy.py`: Executes both the pre-selection and final selection method for a desired number ofspectral bands.        
+* `interBandRedundancy.py`: Executes both the pre-selection and final selection method for a desired number of spectral bands.        
 * `TrainSelection.py`: Class used to train and validate a classifier on the selected dataset type. The main parameters of this class are:
         
         *nbands: Desired number of bands.
