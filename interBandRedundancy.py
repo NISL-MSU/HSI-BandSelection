@@ -146,14 +146,14 @@ class InterBandRedundancy:
 
 if __name__ == '__main__':
 
-    data = 'IP'  # Specify the dataset to be analyzed
+    data = 'Kochia'  # Specify the dataset to be analyzed
     classifier = 'CNN'  #
     nbands = 5  # Specify the number of desired bands
     size = 100
     average = True
     medianF = False
     batch = 128
-    if data == 'IP':
+    if data == 'IP' or data == 'PU':
         average = False
     elif data == 'Avocado':
         medianF = True
@@ -169,7 +169,8 @@ if __name__ == '__main__':
         batch = 2048  # 1024 for Kochia
 
     interB = InterBandRedundancy(dataset=data, flag_average=average, normalize=True)
-    th = 7  # VIF threshold
+    # interB.plotSample()
+    th = 23  # VIF threshold
 
     for t in reversed(range(5, th + 1)):  # Test values from 10 to 5
         print("VIF THRESHOLD: " + str(t))

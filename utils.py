@@ -17,7 +17,7 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 
-def generic_gaussians(indices, bandwidth):
+def generic_gaussians(indices, bandwidth, L):
     """
     Given the indices of the wavelength centers and the
     filter bandwidth (given in nanometers), return the
@@ -33,7 +33,7 @@ def generic_gaussians(indices, bandwidth):
     stdev = np.divide(index_bandwidth, np.multiply(2, np.sqrt(np.multiply(np.log(2), 2))))
 
     for ind in indices:
-        curve = np.linspace(0, 150, 150)
+        curve = np.linspace(0, L, L)
         pdf = norm.pdf(curve, ind, stdev)
         # pdf = np.multiply(pdf, np.divide(highest_count, np.max(pdf)))
         gauss = np.divide(pdf, np.max(pdf))  # Normalize to 1
@@ -43,13 +43,13 @@ def generic_gaussians(indices, bandwidth):
     return all_gaussians
 
 
-def transform_data(produce_spectras, indices, bandwidth):
+def transform_data(produce_spectras, indices, bandwidth, L):
     """
     Get the original produce data, then transofrm that data
     using the histogram used to fit the histogram of wavelengths
     """
 
-    gaussians = generic_gaussians(indices, bandwidth)
+    gaussians = generic_gaussians(indices, bandwidth, L)
 
     new_data = []
     for spectrum in produce_spectras:
@@ -92,7 +92,7 @@ def add_rotation_flip(x, y):
 def load_data(flag_average=True, median=False, normalization=True, nbands=np.infty, method='SSA', selection=None,
               transform=False, data='', vifv=0):
     """Load one of the satellite HSI datasets"""
-    if data == "IP":
+    if data == "IP" or data == "PU" or data == "SA":
         train_x, train_y = loadata(data)
         train_x, train_y = createImageCubes(train_x, train_y, window=5)
     else:
@@ -229,6 +229,31 @@ def load_data(flag_average=True, median=False, normalization=True, nbands=np.inf
                 if nbands == 5:
                     indexes = [4, 27, 83, 96, 148]
 
+        elif data == "SA":  # Selects indexes for the Avocado dataset
+            if method == 'SSA':
+                if nbands == 5:
+                    indexes = [37, 60, 82, 92, 175]
+            elif method == 'FNGBS':
+                if nbands == 3:
+                    indexes = [31, 88, 193]
+                elif nbands == 5:
+                    indexes = [16, 31, 113, 132, 175]
+            elif method == 'OCF':
+                if nbands == 3:
+                    indexes = [34, 45, 120]
+                elif nbands == 5:
+                    indexes = [34, 45, 58, 93, 120]
+            elif method == 'GA':
+                if nbands == 3:
+                    indexes = [19, 51, 91]
+                elif nbands == 5:
+                    indexes = [13, 20, 31, 44, 84]
+            elif method == 'PLS':
+                if nbands == 3:
+                    indexes = [13, 38, 80]
+                elif nbands == 5:
+                    indexes = [10, 13, 38, 80, 146]
+
         if selection is not None:
             indexes = selection
             nbands = len(indexes)
@@ -243,7 +268,7 @@ def load_data(flag_average=True, median=False, normalization=True, nbands=np.inf
             w = train_x.shape[1]
             sp = train_x.shape[3]
             train_x = np.array(transform_data(produce_spectras=train_x.reshape((nu * w * w, sp)), bandwidth=5,
-                                              indices=indexes))
+                                              indices=indexes, L=int(train_x.shape[3])))
             train_x = train_x.reshape((nu, w, w, nbands))
         else:
             # Select bands from original image
