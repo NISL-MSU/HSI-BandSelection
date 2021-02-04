@@ -145,13 +145,15 @@ class TrainSelection:
         return con_mat_df
 
     def train(self):
+        """Train using 10x1 or 5x2 cross-validation"""
         if self.data == "Avocado":
-            self.train10x1()
+            crossval = '10x1'
+            iterator = self.kfold.split(self.trainx, self.train_y)
         else:
-            self.train5x2()
-
-    def train10x1(self):
-        """Train the network using 10-fold cross validation"""
+            # Choose seeds for each iteration is using 5x2 cross-validation
+            seeds = [13, 51, 137, 24659, 347, 436, 123, 64, 958, 234]
+            crossval = '5x2'
+            iterator = enumerate(seeds)
 
         # Create lists to store metrics
         cvoa = []
@@ -164,90 +166,29 @@ class TrainSelection:
         if not os.path.exists(folder):
             os.mkdir(folder)
 
+        # Set string values to define the file names
         ntrain = 1
-        transform = ''
-        if self.transform:
-            transform = 'GAUSS'
-        for train, test in self.kfold.split(self.trainx, self.train_y):
-            print("\n******************************")
-            print("Starting fold: " + str(ntrain))
-            print("******************************")
-            # Normalize using the training set
-            trainx, means, stds = utils.normalize(self.trainx[train])
-            valx = self.trainx[test]
-
-            # Define path where the model will be saved
-            filepath = folder + "//selected" + self.method + str(self.nbands) + "-weights-" + self.classifier \
-                       + "-" + self.data + str(ntrain) + transform + self.th  # saves checkpoint
-
-            # Train the model using the current training-validation split
-            self.model.trainFold(trainx, self.train_y, train, self.batch_size, self.epochs, valx, test, means, stds,
-                                 filepath)
-
-            # Calculate metrics for the ntrain-fold
-            self.model.loadModel(filepath)  # loads checkpoint
-            ytest, ypred = self.model.evaluateFold(valx, self.train_y, test, means, stds, self.batch_size)
-            if self.classes == 2:
-                ypred = np.array(ypred).reshape((len(ypred),))
-            correct_pred = (np.array(ypred) == ytest).astype(float)
-            oa = correct_pred.sum() / len(correct_pred) * 100
-            prec, rec, f1, support = precision_recall_fscore_support(ytest, ypred, average='macro')
-            print("Validation accuracy: " + str(oa))
-
-            # Add metrics to the list
-            cvoa.append(oa)
-            cvpre.append(prec * 100)
-            cvrec.append(rec * 100)
-            cvf1.append(f1 * 100)
-
-            # Reset all weights if training a CNN
-            if self.classifier == 'CNN' or self.classifier == 'ANN':
-                self.model.model.network.apply(weight_reset)
-
-            ntrain += 1
-
-        # Save metrics in a txt file
-        file_name = folder + "//classification_report_" + self.classifier + "_" + self.method + str(self.nbands) + \
-                    self.data + transform + self.th + ".txt"
-        with open(file_name, 'w') as x_file:
-            x_file.write("Overall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvoa)), float(np.std(cvoa))))
-            x_file.write('\n')
-            x_file.write("Precision accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvpre)), float(np.std(cvpre))))
-            x_file.write('\n')
-            x_file.write("Recall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvrec)), float(np.std(cvrec))))
-            x_file.write('\n')
-            x_file.write("F1 accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvf1)), float(np.std(cvf1))))
-
-    def train5x2(self):
-        """Train using 5x2 validation"""
-        # Create lists to store metrics
-        cvoa = []
-        cvpre = []
-        cvrec = []
-        cvf1 = []
-
-        # If the folder does not exist, create it
-        folder = self.data + "//results//" + self.method + "//" + str(self.nbands) + " bands"
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-
-        # Choose seeds for each iteration
-        seeds = [13, 51, 137, 24659, 347, 436, 123, 64, 958, 234]
-        ntrain = 1
-        transform = ''
         size = ''
-        if self.transform:
-            transform = 'GAUSS'
         if self.size != 100:
             size = str(self.size)
+        transform = ''
+        if self.transform:
+            transform = 'GAUSS'
 
         # Iterate through each partition
-        for i_s, seed in enumerate(seeds):
-            # Split the dataset in 2 parts with the current seed
-            train, test = train_test_split(range(len(self.trainx)), test_size=0.50, random_state=seed,
-                                           stratify=self.train_y)
-            train = np.array(train)
-            test = np.array(test)
+        for first, second in iterator:
+            if crossval == '10x1':
+                # Gets the list of training and test images using kfold.split
+                train = np.array(first)
+                test = np.array(second)
+                print("Using 10x1 cross-validation for this dataset")
+            else:
+                # Split the dataset in 2 parts with the current seed
+                train, test = train_test_split(range(len(self.trainx)), test_size=0.50, random_state=second)
+                train = np.array(train)
+                test = np.array(test)
+                print("Using 5x2 cross-validation for this dataset")
+
             print("\n******************************")
             print("Starting fold: " + str(ntrain))
             print("******************************")
@@ -256,7 +197,7 @@ class TrainSelection:
             valx = self.trainx[test]
 
             # Define path where the model will be saved
-            filepath = folder + "//selected5x2" + size + self.method + str(self.nbands) + "-weights-" + \
+            filepath = folder + "//selected" + crossval + size + self.method + str(self.nbands) + "-weights-" + \
                        self.classifier + "-" + self.data + str(ntrain) + transform + self.th  # saves checkpoint
 
             # Train the model using the current training-validation split
@@ -264,7 +205,7 @@ class TrainSelection:
                                  filepath)
 
             # Calculate metrics for the ntrain-fold
-            self.model.loadModel(filepath)  # loads checkpoint
+            self.model.loadModel(filepath)  # load checkpoint
             ytest, ypred = self.model.evaluateFold(valx, self.train_y, test, means, stds, self.batch_size)
             if self.classes == 2:
                 ypred = np.array(ypred).reshape((len(ypred),))
@@ -286,7 +227,7 @@ class TrainSelection:
             ntrain += 1
 
         # Save metrics in a txt file
-        file_name = folder + "//classification_report5x2_" + size + self.classifier + "_" + self.method + \
+        file_name = folder + "//classification_report" + crossval + "_" + size + self.classifier + "_" + self.method + \
                     str(self.nbands) + self.data + transform + self.th + ".txt"
         with open(file_name, 'w') as x_file:
             x_file.write("Overall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvoa)), float(np.std(cvoa))))
@@ -298,92 +239,16 @@ class TrainSelection:
             x_file.write("F1 accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvf1)), float(np.std(cvf1))))
 
     def validate(self):
-        if self.data == "Kochia" or self.data == "Avocado":
-            self.validate10x1()
-        else:
-            self.validate5x2()
-
-    def validate10x1(self):
         """Calculate validation metrics and plot confusion matrix"""
+        if self.data == "Avocado":
+            crossval = '10x1'
+            iterator = self.kfold.split(self.trainx, self.train_y)
+        else:
+            # Choose seeds for each iteration is using 5x2 cross-validation
+            seeds = [13, 51, 137, 24659, 347, 436, 123, 64, 958, 234]
+            crossval = '5x2'
+            iterator = enumerate(seeds)
 
-        # Create lists to store metrics
-        cvoa = []
-        cvpre = []
-        cvrec = []
-        cvf1 = []
-
-        folder = self.data + "//results//" + self.method + "//" + str(self.nbands) + " bands"
-
-        ntrain = 1
-        transform = ''
-        if self.transform:
-            transform = 'GAUSS'
-        confmatrices = np.zeros((10, int(self.classes), int(self.classes)))
-        for train, test in self.kfold.split(self.trainx, self.train_y):
-            print("\n******************************")
-            print("Validating fold: " + str(ntrain))
-            print("******************************")
-            # Normalize using the training set
-            _, means, stds = utils.normalize(self.trainx[train])
-            valx = self.trainx[test]
-
-            filepath = self.data + "//results//" + self.method + "//" + str(self.nbands) \
-                       + " bands//selected" + self.method + str(self.nbands) + "-weights-" + self.classifier + "-" + \
-                       self.data + str(ntrain) + transform + self.th  # saves checkpoint
-            # Calculate metrics for the ntrain-fold
-            self.model.loadModel(filepath)  # loads checkpoint
-            ytest, ypred = self.model.evaluateFold(valx, self.train_y, test, means, stds, self.batch_size)
-            if self.classes == 2:
-                ypred = np.array(ypred).reshape((len(ypred),)).astype(np.int8)
-            correct_pred = (np.array(ypred) == ytest).astype(float)
-            oa = correct_pred.sum() / len(correct_pred) * 100
-            prec, rec, f1, support = precision_recall_fscore_support(ytest, ypred, average='macro')
-            con_mat_df = self.confusion_matrix(ypred, ytest)
-            confmatrices[ntrain - 1, :, :] = con_mat_df.values
-
-            # Add metrics to the list
-            cvoa.append(oa)
-            cvpre.append(prec * 100)
-            cvrec.append(rec * 100)
-            cvf1.append(f1 * 100)
-
-            ntrain += 1
-
-        # Save metrics in a txt file
-        file_name = folder + "//classification_report_" + self.classifier + "_" + self.method + str(self.nbands) + \
-                    self.data + transform + self.th + ".txt"
-        with open(file_name, 'w') as x_file:
-            x_file.write("Overall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvoa)), float(np.std(cvoa))))
-            x_file.write('\n')
-            x_file.write("Precision accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvpre)), float(np.std(cvpre))))
-            x_file.write('\n')
-            x_file.write("Recall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvrec)), float(np.std(cvrec))))
-            x_file.write('\n')
-            x_file.write("F1 accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvf1)), float(np.std(cvf1))))
-
-        # Calculate mean and std
-        means = np.mean(confmatrices * 100, axis=0)
-        stds = np.std(confmatrices * 100, axis=0)
-
-        with open(folder + '//means' + self.classifier + self.method + str(self.nbands) + self.data +
-                  transform + self.th, 'wb') as fi:
-            pickle.dump(means, fi)
-        with open(folder + '//stds' + self.classifier + self.method + str(self.nbands) + self.data +
-                  transform + self.th, 'wb') as fi:
-            pickle.dump(stds, fi)
-        with open(folder + '//cvf1' + self.classifier + self.method + str(self.nbands) + self.data +
-                  transform + self.th, 'wb') as fi:
-            pickle.dump(cvf1, fi)
-
-        # Plot confusion matrix
-        if self.plot:
-            classes_list = list(range(0, int(self.classes)))
-            plot_confusion_matrix(means, stds, classescf=classes_list)
-            plt.savefig(folder + '//MatrixConfusion_' + self.method + self.classifier +
-                        str(self.nbands) + self.data + transform + '.png', dpi=600)
-
-    def validate5x2(self):
-        """Validate using 5x2 validation"""
         # Create lists to store metrics
         cvoa = []
         cvpre = []
@@ -395,22 +260,30 @@ class TrainSelection:
         if not os.path.exists(folder):
             os.mkdir(folder)
 
-        # Choose seeds for each iteration
-        seeds = [13, 51, 137, 24659, 347, 436, 123, 64, 958, 234]
+        # Set string values to define the file names
         ntrain = 1
-        transform = ''
         size = ''
-        if self.transform:
-            transform = 'GAUSS'
         if self.size != 100:
             size = str(self.size)
+        transform = ''
+        if self.transform:
+            transform = 'GAUSS'
 
         confmatrices = np.zeros((10, int(self.classes), int(self.classes)))
         # Iterate through each partition
-        for i_s, seed in enumerate(seeds):
-            # Split the dataset in 2 parts with the current seed
-            train, test = train_test_split(range(len(self.trainx)), test_size=0.50, random_state=seed,
-                                           stratify=self.train_y)
+        for first, second in iterator:
+            if crossval == '10x1':
+                # Gets the list of training and test images using kfold.split
+                train = np.array(first)
+                test = np.array(second)
+                print("Using 10x1 cross-validation for this dataset")
+            else:
+                # Split the dataset in 2 parts with the current seed
+                train, test = train_test_split(range(len(self.trainx)), test_size=0.50, random_state=second)
+                train = np.array(train)
+                test = np.array(test)
+                print("Using 5x2 cross-validation for this dataset")
+
             print("\n******************************")
             print("Validating fold: " + str(ntrain))
             print("******************************")
@@ -418,11 +291,12 @@ class TrainSelection:
             _, means, stds = utils.normalize(self.trainx[train])
             valx = self.trainx[test]
 
-            filepath = self.data + "//results//" + size + self.method + "//" + str(self.nbands) \
-                       + " bands//selected5x2" + self.method + str(self.nbands) + "-weights-" + self.classifier + \
-                       "-" + self.data + str(ntrain) + transform + self.th  # saves checkpoint
+            # Load model
+            filepath = folder + "//selected" + crossval + self.method + str(self.nbands) + "-weights-" + \
+                       self.classifier + "-" + self.data + str(ntrain) + transform + self.th
+            self.model.loadModel(filepath)
+
             # Calculate metrics for the ntrain-fold
-            self.model.loadModel(filepath)  # loads checkpoint
             ytest, ypred = self.model.evaluateFold(valx, self.train_y, test, means, stds, self.batch_size)
             if self.classes == 2:
                 ypred = np.array(ypred).reshape((len(ypred),)).astype(np.int8)
