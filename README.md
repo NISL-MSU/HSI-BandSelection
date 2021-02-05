@@ -43,6 +43,8 @@ This repository contains the following scripts:
         *selection: Load only the selected bands from the dataset
         *th: Optional index to add in the end of the generated files
         *median: If True, perform a median filtering on the spectral bands.
+        *pca: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
+        bands using PCA.
         
 * `network.py`: Contains all the network architectures used in this work.
 * `utils.py`: Additional methods used to transform the data and calculate the metrics.     
