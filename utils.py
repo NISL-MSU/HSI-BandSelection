@@ -89,8 +89,8 @@ def add_rotation_flip(x, y):
     return x, y
 
 
-def load_data(flag_average=True, median=False, normalization=True, nbands=np.infty, method='SSA', selection=None,
-              transform=False, data='', vifv=0):
+def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', selection=None,
+              transform=False, data='', vifv=0, pca=False):
     """Load one of the satellite HSI datasets"""
     if data == "IP" or data == "PU" or data == "SA":
         train_x, train_y = loadata(data)
@@ -138,25 +138,25 @@ def load_data(flag_average=True, median=False, normalization=True, nbands=np.inf
     if nbands < int(train_x.shape[3]) or selection is not None:
         if data == "Kochia":  # Selects indexes for the Kochia dataset
             if method == 'SSA':
-                if nbands == 6:
+                if nbands == 6 and not pca:
                     indexes = [1, 18, 43, 68, 81, 143]
                 elif nbands == 10:
                     indexes = [2, 5, 18, 31, 42, 54, 68, 74, 79, 143]
-                elif nbands == 19 and vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
+                elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
                     indexes = [2, 5, 18, 31, 42, 54, 65, 68, 74, 79, 85, 89, 103, 106, 128, 132, 137, 143, 147]
-                elif nbands == 21 and vifv == 11:  # Selected by the Inter-band redundancy method. VIF: 11.
+                elif vifv == 11:  # Selected by the Inter-band redundancy method. VIF: 11.
                     indexes = [2, 5, 18, 31, 42, 47, 54, 65, 68, 74, 77, 80, 84, 89, 105, 132, 136, 139, 141, 143, 147]
-                elif nbands == 17 and vifv == 10:  # Selected by the Inter-band redundancy method. VIF: 10.
+                elif vifv == 10:  # Selected by the Inter-band redundancy method. VIF: 10.
                     indexes = [1, 18, 31, 43, 54, 64, 68, 78, 81, 84, 89, 105, 132, 136, 140, 143, 146]
-                elif nbands == 15 and vifv == 9:  # Selected by the Inter-band redundancy method. VIF: 9.
+                elif vifv == 9:  # Selected by the Inter-band redundancy method. VIF: 9.
                     indexes = [1, 18, 31, 43, 46, 54, 67, 74, 78, 81, 105, 132, 136, 139, 143]
-                elif nbands == 16 and vifv == 8:  # Selected by the Inter-band redundancy method. VIF: 8.
+                elif vifv == 8:  # Selected by the Inter-band redundancy method. VIF: 8.
                     indexes = [0, 4, 18, 31, 45, 55, 63, 68, 74, 79, 106, 132, 136, 140, 144, 146]
-                elif nbands == 16 and vifv == 7:  # Selected by the Inter-band redundancy method. VIF: 7.
+                elif vifv == 7:  # Selected by the Inter-band redundancy method. VIF: 7.
                     indexes = [0, 4, 18, 31, 43, 46, 56, 63, 66, 68, 74, 79, 105, 132, 140, 146]
-                elif nbands == 15 and vifv == 6:  # Selected by the Inter-band redundancy method. VIF: 6.
+                elif vifv == 6:  # Selected by the Inter-band redundancy method. VIF: 6.
                     indexes = [0, 4, 18, 47, 57, 62, 69, 74, 78, 81, 105, 132, 136, 140, 145]
-                elif nbands == 10 and vifv == 5:  # Selected by the Inter-band redundancy method. VIF: 5.
+                elif vifv == 5:  # Selected by the Inter-band redundancy method. VIF: 5.
                     indexes = [0, 18, 47, 61, 74, 79, 105, 132, 140, 145]
             elif method == 'FNGBS':
                 if nbands == 6:
@@ -279,12 +279,6 @@ def load_data(flag_average=True, median=False, normalization=True, nbands=np.inf
 
             train_x = temp.astype(np.float32)
 
-    if normalization:
-        # Apply Band normalization
-        for n in range(train_x.shape[3]):
-            train_x[:, :, :, n] = (train_x[:, :, :, n] - np.mean(train_x[:, :, :, n])) \
-                                  / (np.std(train_x[:, :, :, n]))
-
     if data == "Avocado":
         train_x, train_y = add_rotation_flip(train_x, train_y)
 
@@ -368,7 +362,7 @@ def tTest(method1='', nbands1=6, method2='', nbands2=6, data='', transform=False
 def entropy(labels, base=2):
     value, counts = np.unique(labels, return_counts=True)
     norm_counts = counts / counts.sum()
-    return -(norm_counts * np.log(norm_counts)/np.log(base)).sum()
+    return -(norm_counts * np.log(norm_counts) / np.log(base)).sum()
 
 
 def get_class_distributionKochia(train_y):
@@ -426,3 +420,30 @@ def get_class_distributionIP(train_y):
             count_dict['15'] += 1
 
     return count_dict
+
+
+def getPCA(Xc, numComponents=5, dataset='Kochia'):
+    """Reduce the number of components or channels using PCA"""
+    newX = Xc.transpose((0, 3, 4, 1, 2))
+    newX = np.reshape(newX, (-1, newX.shape[4]))
+    pcaC = PCA(n_components=numComponents, whiten=True)
+    newX = pcaC.fit_transform(newX)
+    newX = np.reshape(newX, (Xc.shape[0], Xc.shape[1], numComponents, Xc.shape[3], Xc.shape[3]))
+    # Save pca transformation
+    file = dataset + "//results//PCA_transformations//pca_" + str(numComponents)
+    with open(file, 'wb') as f:
+        pickle.dump(pcaC, f)
+    return newX
+
+
+def applyPCA(Xc, numComponents=5, dataset='Kochia'):
+    """Apply previously calculated PCA transformation"""
+    # Load pca transformation
+    file = dataset + "//results//PCA_transformations//pca_" + str(numComponents)
+    with open(file, 'rb') as f:
+        pcaC = pickle.load(f)
+    newX = Xc.transpose((0, 3, 4, 1, 2))
+    newX = np.reshape(newX, (-1, newX.shape[4]))
+    newX = pcaC.transform(newX)
+    newX = np.reshape(newX, (Xc.shape[0], Xc.shape[1], numComponents, Xc.shape[3], Xc.shape[3]))
+    return newX

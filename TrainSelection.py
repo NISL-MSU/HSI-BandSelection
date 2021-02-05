@@ -67,7 +67,8 @@ class TrainSelection:
     """Class used for training a dataset using the Hyper3DNetLite network"""
 
     def __init__(self, nbands=6, method='SSA', classifier='CNN', transform=False, average=True, batch_size=128,
-                 epochs=150, data='Kochia', size=100, plot=False, selection=None, th='', median=False, vif=0):
+                 epochs=150, data='Kochia', size=100, plot=False, selection=None, th='', median=False, vif=0,
+                 pca=False):
         """
         @param nbands: Desired number of bands.
         @param method: Band selection method. Options: 'SSA', 'OCF', 'GA', 'PLS', 'FNGBS', 'FullSpec'.
@@ -81,6 +82,8 @@ class TrainSelection:
         @param selection: Load only the selected bands from the dataset
         @param th: Optional index to add in the end of the generated files
         @param median: If True, perform a median filtering on the spectral bands.
+        @para pca: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
+        bands using PCA.
         """
         if selection is not None:
             self.nbands = len(selection)
@@ -95,12 +98,13 @@ class TrainSelection:
         self.data = data
         self.size = size
         self.plot = plot
+        self.pca = pca
         self.th = th
 
         # Read the data using the specified parameters
         self.trainx, self.train_y, self.indexes = \
             utils.load_data(nbands=nbands, flag_average=average, method=method, transform=transform, data=self.data,
-                            selection=selection, median=median, vifv=vif, normalization=False)
+                            selection=selection, median=median, vifv=vif, pca=pca)
         # Reshape as a 4-D TENSOR
         self.trainx = np.reshape(self.trainx, (self.trainx.shape[0], self.trainx.shape[1], self.trainx.shape[2],
                                                self.trainx.shape[3], 1))
@@ -111,7 +115,7 @@ class TrainSelection:
             self.minD[i] = np.min(self.trainx[:, :, :, i, 0])
             self.maxD[i] = np.max(self.trainx[:, :, :, i, 0])
 
-        # Shuffle dataset
+        # Shuffle dataset and reduce dataset size
         np.random.seed(seed=7)  # Initialize seed to get reproducible results
         ind = [i for i in range(self.trainx.shape[0])]
         np.random.shuffle(ind)
@@ -130,7 +134,7 @@ class TrainSelection:
         print("Loading model...")
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model = Model(self.classifier, self.data, self.device, self.nbands, self.windowSize,
-                           self.train_y, self.classes)
+                           self.train_y, self.classes, self.pca)
 
     def confusion_matrix(self, ypred, ytest):
         """Calculate confusion matrix"""
@@ -174,6 +178,9 @@ class TrainSelection:
         transform = ''
         if self.transform:
             transform = 'GAUSS'
+        pca = ''
+        if self.pca:
+            pca = 'PCA'
 
         # Iterate through each partition
         for first, second in iterator:
@@ -194,11 +201,13 @@ class TrainSelection:
             print("******************************")
             # Normalize using the training set
             trainx, means, stds = utils.normalize(self.trainx[train])
+            if self.pca:
+                trainx = utils.getPCA(trainx, numComponents=self.nbands, dataset=self.data)
             valx = self.trainx[test]
 
             # Define path where the model will be saved
-            filepath = folder + "//selected" + crossval + size + self.method + str(self.nbands) + "-weights-" + \
-                       self.classifier + "-" + self.data + str(ntrain) + transform + self.th  # saves checkpoint
+            filepath = folder + "//selected" + crossval + size + self.method + pca + str(self.nbands) + \
+                       "-weights-" + self.classifier + "-" + self.data + str(ntrain) + transform + self.th
 
             # Train the model using the current training-validation split
             self.model.trainFold(trainx, self.train_y, train, self.batch_size, self.epochs, valx, test, means, stds,
@@ -228,7 +237,7 @@ class TrainSelection:
 
         # Save metrics in a txt file
         file_name = folder + "//classification_report" + crossval + "_" + size + self.classifier + "_" + self.method + \
-                    str(self.nbands) + self.data + transform + self.th + ".txt"
+                    str(self.nbands) + self.data + transform + pca + self.th + ".txt"
         with open(file_name, 'w') as x_file:
             x_file.write("Overall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvoa)), float(np.std(cvoa))))
             x_file.write('\n')
@@ -268,6 +277,9 @@ class TrainSelection:
         transform = ''
         if self.transform:
             transform = 'GAUSS'
+        pca = ''
+        if self.pca:
+            pca = 'PCA'
 
         confmatrices = np.zeros((10, int(self.classes), int(self.classes)))
         # Iterate through each partition
@@ -287,13 +299,14 @@ class TrainSelection:
             print("\n******************************")
             print("Validating fold: " + str(ntrain))
             print("******************************")
-            # Normalize using the training set
-            _, means, stds = utils.normalize(self.trainx[train])
+            trainx, means, stds = utils.normalize(self.trainx[train])
+            if self.pca:
+                _ = utils.getPCA(trainx, numComponents=self.nbands, dataset=self.data)
             valx = self.trainx[test]
 
-            # Load model
-            filepath = folder + "//selected" + crossval + self.method + str(self.nbands) + "-weights-" + \
-                       self.classifier + "-" + self.data + str(ntrain) + transform + self.th
+            # Define path where the model is saved
+            filepath = folder + "//selected" + crossval + size + self.method + pca + str(self.nbands) + \
+                       "-weights-" + self.classifier + "-" + self.data + str(ntrain) + transform + self.th
             self.model.loadModel(filepath)
 
             # Calculate metrics for the ntrain-fold
@@ -402,7 +415,7 @@ class TrainSelection:
 
         # Set model
         models = Model(self.classifier, self.data, self.device, len(selection), self.windowSize,
-                       self.train_y, self.classes)
+                       self.train_y, self.classes, self.pca)
 
         # Select bands
         trainx = np.zeros((self.trainx.shape[0], 1, len(selection), self.windowSize, self.windowSize))
@@ -475,13 +488,18 @@ class TrainSelection:
 
 if __name__ == '__main__':
 
-    # Train using the bands selected by the other methods: Kochia
-    methods = ['GA', 'FNGBS', 'OCF', 'PLS']
-    transforms = [False, True]
-    bands = [6, 10]
-    for ba in bands:
-        for me in methods:
-            for tr in transforms:
-                net = TrainSelection(nbands=ba, method=me, transform=tr, average=True, batch_size=128,
-                                     epochs=130, plot=False, data='Kochia')
-                net.train()
+    # # Train using the bands selected by the other methods: Kochia
+    # methods = ['GA', 'FNGBS', 'OCF', 'PLS']
+    # transforms = [False, True]
+    # bands = [6, 10]
+    # for ba in bands:
+    #     for me in methods:
+    #         for tr in transforms:
+    #             net = TrainSelection(nbands=ba, method=me, transform=tr, average=True, batch_size=128,
+    #                                  epochs=130, plot=False, data='Kochia')
+    #             net.train()
+
+    net = TrainSelection(nbands=6, method='SSA', transform=False, average=True, batch_size=128,
+                                     epochs=130, plot=False, data='Kochia', vif=10, pca=True)
+    net.train()
+    net.validate()

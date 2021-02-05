@@ -4,7 +4,7 @@ import abc
 class ModelStrategy(abc.ABC):
     """Interface containing the methods used to declare a model, train it, and validate it"""
     @abc.abstractmethod
-    def defineModel(self, device, data, nbands, windowSize, classes, train_y):
+    def defineModel(self, device, data, nbands, windowSize, classes, train_y, pca):
         pass
 
     @abc.abstractmethod

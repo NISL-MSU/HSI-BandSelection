@@ -26,8 +26,12 @@ class CNNObject:
 
 class CNNStrategy(ModelStrategy):
 
-    def defineModel(self, device, data, nbands, windowSize, classes, train_y):
-        print(data)
+    def __init__(self):
+        self.pca = None
+        self.nbands = None
+        self.data = None
+
+    def defineModel(self, device, data, nbands, windowSize, classes, train_y, pca):
         """Override model declaration method"""
         model = Hyper3DNetLite(img_shape=(1, nbands, windowSize, windowSize), classes=int(classes), data=data)
         model.to(device)
@@ -44,6 +48,10 @@ class CNNStrategy(ModelStrategy):
             criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
 
         optimizer = optim.Adadelta(model.parameters(), lr=1.0)
+
+        self.pca = pca
+        self.nbands = nbands
+        self.data = data
 
         return CNNObject(model, criterion, optimizer)
 
@@ -116,6 +124,9 @@ class CNNStrategy(ModelStrategy):
 
     def evaluateFoldStrategy(self, model, valx, train_y, test, means, stds, batch_size, classes, device):
         valxn = utils.applynormalize(valx, means, stds)
+        if self.pca:
+            valxn = utils.applyPCA(valxn, numComponents=self.nbands, dataset=self.data)
+
         ypred = []
         with torch.no_grad():
             model.network.eval()
