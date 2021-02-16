@@ -499,7 +499,7 @@ if __name__ == '__main__':
     #                                  epochs=130, plot=False, data='Kochia')
     #             net.train()
 
-    net = TrainSelection(nbands=6, method='SSA', transform=False, average=True, batch_size=128,
-                                     epochs=130, plot=False, data='Kochia', vif=10, pca=True)
+    net = TrainSelection(nbands=10, method='SSA', transform=True, average=True, batch_size=128,
+                                     epochs=130, plot=False, data='Kochia', vif=7, pca=True)
     net.train()
     net.validate()

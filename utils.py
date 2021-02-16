@@ -8,6 +8,7 @@ import cv2
 from readSAT import *
 from scipy import stats
 import torch
+from sklearn.metrics import r2_score
 
 # import matplotlib.pyplot as plt
 np.random.seed(seed=7)  # Initialize seed to get reproducible results
@@ -140,7 +141,7 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
             if method == 'SSA':
                 if nbands == 6 and not pca:
                     indexes = [1, 18, 43, 68, 81, 143]
-                elif nbands == 10:
+                elif nbands == 10 and not pca:
                     indexes = [2, 5, 18, 31, 42, 54, 68, 74, 79, 143]
                 elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
                     indexes = [2, 5, 18, 31, 42, 54, 65, 68, 74, 79, 85, 89, 103, 106, 128, 132, 137, 143, 147]
@@ -214,8 +215,30 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
 
         elif data == "IP":  # Selects indexes for the Avocado dataset
             if method == 'SSA':
-                if nbands == 5:
+                if nbands == 5 and not pca:
                     indexes = [11, 25, 34, 39, 67]
+                elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
+                    indexes = [2, 7, 11, 17, 26, 34, 39, 47, 56, 58, 60, 67, 74, 80, 89, 99, 104, 109, 125, 142, 144,
+                               146, 148, 150, 169, 187, 191, 198]
+                elif vifv == 11:  # Selected by the Inter-band redundancy method. VIF: 11.
+                    indexes = [0, 7, 11, 15, 17, 20, 26, 34, 37, 39, 47, 56, 58, 60, 67, 74, 78, 89, 99, 104, 109, 125,
+                               142, 144, 146, 148, 150, 169, 191, 198]
+                elif vifv == 10:  # Selected by the Inter-band redundancy method. VIF: 10.
+                    indexes = [0, 7, 11, 15, 17, 25, 34, 37, 39, 44, 47, 56, 58, 60, 67, 74, 78, 86, 93, 99, 104, 109,
+                               125, 142, 144, 146, 148, 150, 169, 191, 199]
+                elif vifv == 9:  # Selected by the Inter-band redundancy method. VIF: 9.
+                    indexes = [0, 7, 12, 15, 17, 23, 25, 34, 46, 56, 58, 60, 67, 74, 78, 86, 93, 99, 104, 109, 125, 142,
+                               144, 146, 148, 151, 169, 173, 199]
+                elif vifv == 8:  # Selected by the Inter-band redundancy method. VIF: 8.
+                    indexes = [0, 6, 12, 22, 26, 34, 46, 56, 58, 60, 67, 74, 78, 87, 93, 99, 104, 106, 109, 123, 143,
+                               146, 148, 151, 168, 171, 198]
+                elif vifv == 7:  # Selected by the Inter-band redundancy method. VIF: 7.
+                    indexes = [0, 5, 12, 18, 20, 34, 46, 56, 58, 60, 67, 74, 78, 87, 93, 99, 104, 107, 109, 124, 143,
+                               146, 148, 151, 171]
+                elif vifv == 6:  # Selected by the Inter-band redundancy method. VIF: 6.
+                    indexes = [0, 5, 19, 34, 46, 56, 58, 60, 67, 74, 78, 87, 93, 99, 104, 124, 144, 148, 150, 171]
+                elif vifv == 5:  # Selected by the Inter-band redundancy method. VIF: 5.
+                    indexes = [0, 19, 35, 45, 56, 58, 60, 67, 74, 78, 87, 93, 99, 104, 124, 144, 146, 148, 150, 169]
             elif method == 'FNGBS':
                 if nbands == 5:
                     indexes = [28, 70, 92, 107, 129]
@@ -231,8 +254,24 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
 
         elif data == "SA":  # Selects indexes for the Avocado dataset
             if method == 'SSA':
-                if nbands == 5:
+                if nbands == 5 and not pca:
                     indexes = [37, 60, 82, 92, 175]
+                elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
+                    indexes = [2, 16, 19, 22, 27, 37, 60, 65, 91, 104, 106, 127, 147, 175, 202]
+                elif vifv == 11:  # Selected by the Inter-band redundancy method. VIF: 11.
+                    indexes = [2, 17, 22, 28, 37, 60, 63, 91, 104, 106, 127, 147, 175, 202]
+                elif vifv == 10:  # Selected by the Inter-band redundancy method. VIF: 10.
+                    indexes = [2, 17, 22, 29, 37, 60, 64, 92, 103, 106, 127, 147, 175, 202]
+                elif vifv == 9:  # Selected by the Inter-band redundancy method. VIF: 9.
+                    indexes = [2, 17, 21, 37, 60, 92, 103, 106, 127, 147, 175, 202]
+                elif vifv == 8:  # Selected by the Inter-band redundancy method. VIF: 8.
+                    indexes = [2, 21, 37, 60, 82, 92, 103, 106, 127, 147, 175, 202]
+                elif vifv == 7:  # Selected by the Inter-band redundancy method. VIF: 7.
+                    indexes = [2, 21, 37, 60, 82, 92, 103, 106, 127, 147, 174, 202]
+                elif vifv == 6:  # Selected by the Inter-band redundancy method. VIF: 6.
+                    indexes = [2, 20, 38, 60, 82, 91, 104, 106, 127, 147, 174, 202]
+                elif vifv == 5:  # Selected by the Inter-band redundancy method. VIF: 5.
+                    indexes = [0, 19, 38, 60, 91, 104, 106, 127, 147, 174, 202]
             elif method == 'FNGBS':
                 if nbands == 3:
                     indexes = [31, 88, 193]
@@ -256,7 +295,6 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
 
         if selection is not None:
             indexes = selection
-            nbands = len(indexes)
 
         # Sort indexes
         indexes.sort()
@@ -269,12 +307,12 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
             sp = train_x.shape[3]
             train_x = np.array(transform_data(produce_spectras=train_x.reshape((nu * w * w, sp)), bandwidth=5,
                                               indices=indexes, L=int(train_x.shape[3])))
-            train_x = train_x.reshape((nu, w, w, nbands))
+            train_x = train_x.reshape((nu, w, w, len(indexes)))
         else:
             # Select bands from original image
-            temp = np.zeros((train_x.shape[0], train_x.shape[1], train_x.shape[2], nbands))
+            temp = np.zeros((train_x.shape[0], train_x.shape[1], train_x.shape[2], len(indexes)))
 
-            for nb in range(0, nbands):
+            for nb in range(0, len(indexes)):
                 temp[:, :, :, nb] = train_x[:, :, :, indexes[nb]]
 
             train_x = temp.astype(np.float32)
@@ -424,11 +462,12 @@ def get_class_distributionIP(train_y):
 
 def getPCA(Xc, numComponents=5, dataset='Kochia'):
     """Reduce the number of components or channels using PCA"""
-    newX = Xc.transpose((0, 3, 4, 1, 2))
-    newX = np.reshape(newX, (-1, newX.shape[4]))
+    newX = Xc.transpose((0, 3, 4, 2, 1))
+    newX = np.reshape(newX, (-1, newX.shape[3]))
     pcaC = PCA(n_components=numComponents, whiten=True)
     newX = pcaC.fit_transform(newX)
-    newX = np.reshape(newX, (Xc.shape[0], Xc.shape[1], numComponents, Xc.shape[3], Xc.shape[3]))
+    newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
+    newX = newX.transpose((0, 4, 3, 1, 2))
     # Save pca transformation
     file = dataset + "//results//PCA_transformations//pca_" + str(numComponents)
     with open(file, 'wb') as f:
@@ -442,8 +481,13 @@ def applyPCA(Xc, numComponents=5, dataset='Kochia'):
     file = dataset + "//results//PCA_transformations//pca_" + str(numComponents)
     with open(file, 'rb') as f:
         pcaC = pickle.load(f)
-    newX = Xc.transpose((0, 3, 4, 1, 2))
-    newX = np.reshape(newX, (-1, newX.shape[4]))
+    newX = Xc.transpose((0, 3, 4, 2, 1))
+    newX = np.reshape(newX, (-1, newX.shape[3]))
+    print("Explained variance in the training set:")
+    print(np.sum(pcaC.explained_variance_ratio_))
+    print("Explained variance in the test set:")
+    print(r2_score(newX, pcaC.inverse_transform(pcaC.transform(newX)), multioutput='variance_weighted'))
     newX = pcaC.transform(newX)
-    newX = np.reshape(newX, (Xc.shape[0], Xc.shape[1], numComponents, Xc.shape[3], Xc.shape[3]))
+    newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
+    newX = newX.transpose((0, 4, 3, 1, 2))
     return newX
