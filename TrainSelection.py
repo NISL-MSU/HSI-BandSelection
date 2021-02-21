@@ -68,7 +68,7 @@ class TrainSelection:
 
     def __init__(self, nbands=6, method='SSA', classifier='CNN', transform=False, average=True, batch_size=128,
                  epochs=150, data='Kochia', size=100, plot=False, selection=None, th='', median=False, vif=0,
-                 pca=False):
+                 pca=False, pls=False):
         """
         @param nbands: Desired number of bands.
         @param method: Band selection method. Options: 'SSA', 'OCF', 'GA', 'PLS', 'FNGBS', 'FullSpec'.
@@ -84,6 +84,8 @@ class TrainSelection:
         @param median: If True, perform a median filtering on the spectral bands.
         @para pca: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
         bands using PCA.
+        @para pls: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
+        bands using LDA.
         """
         if selection is not None:
             self.nbands = len(selection)
@@ -99,12 +101,13 @@ class TrainSelection:
         self.size = size
         self.plot = plot
         self.pca = pca
+        self.pls = pls
         self.th = th
 
         # Read the data using the specified parameters
         self.trainx, self.train_y, self.indexes = \
             utils.load_data(nbands=nbands, flag_average=average, method=method, transform=transform, data=self.data,
-                            selection=selection, median=median, vifv=vif, pca=pca)
+                            selection=selection, median=median, vifv=vif, pca=pca, pls=pls)
         # Reshape as a 4-D TENSOR
         self.trainx = np.reshape(self.trainx, (self.trainx.shape[0], self.trainx.shape[1], self.trainx.shape[2],
                                                self.trainx.shape[3], 1))
@@ -134,7 +137,7 @@ class TrainSelection:
         print("Loading model...")
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model = Model(self.classifier, self.data, self.device, self.nbands, self.windowSize,
-                           self.train_y, self.classes, self.pca)
+                           self.train_y, self.classes, self.pca, self.pls)
 
     def confusion_matrix(self, ypred, ytest):
         """Calculate confusion matrix"""
@@ -181,6 +184,8 @@ class TrainSelection:
         pca = ''
         if self.pca:
             pca = 'PCA'
+        elif self.pls:
+            pca = 'PLS'
 
         # Iterate through each partition
         for first, second in iterator:
@@ -203,6 +208,8 @@ class TrainSelection:
             trainx, means, stds = utils.normalize(self.trainx[train])
             if self.pca:
                 trainx = utils.getPCA(trainx, numComponents=self.nbands, dataset=self.data)
+            elif self.pls:
+                trainx = utils.getPLS(trainx, self.train_y[train], numComponents=self.nbands, dataset=self.data)
             valx = self.trainx[test]
 
             # Define path where the model will be saved
@@ -280,6 +287,8 @@ class TrainSelection:
         pca = ''
         if self.pca:
             pca = 'PCA'
+        elif self.pls:
+            pca = 'PLS'
 
         confmatrices = np.zeros((10, int(self.classes), int(self.classes)))
         # Iterate through each partition
@@ -302,6 +311,8 @@ class TrainSelection:
             trainx, means, stds = utils.normalize(self.trainx[train])
             if self.pca:
                 _ = utils.getPCA(trainx, numComponents=self.nbands, dataset=self.data)
+            elif self.pls:
+                _ = utils.getPLS(trainx, self.train_y[train], numComponents=self.nbands, dataset=self.data)
             valx = self.trainx[test]
 
             # Define path where the model is saved
@@ -329,7 +340,7 @@ class TrainSelection:
 
         # Save metrics in a txt file
         file_name = folder + "//classification_report5x2_" + size + self.classifier + "_" + self.method + \
-                    str(self.nbands) + self.data + transform + self.th + ".txt"
+                    str(self.nbands) + self.data + transform + pca + self.th + ".txt"
         with open(file_name, 'w') as x_file:
             x_file.write("Overall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvoa)), float(np.std(cvoa))))
             x_file.write('\n')
@@ -344,13 +355,13 @@ class TrainSelection:
         stds = np.std(confmatrices * 100, axis=0)
 
         with open(folder + '//means' + size + self.classifier + self.method + str(self.nbands) + self.data +
-                  transform + self.th, 'wb') as fi:
+                  transform + pca + self.th, 'wb') as fi:
             pickle.dump(means, fi)
         with open(folder + '//stds' + size + self.classifier + self.method + str(self.nbands) + self.data +
-                  transform + self.th, 'wb') as fi:
+                  transform + pca + self.th, 'wb') as fi:
             pickle.dump(stds, fi)
         with open(folder + '//cvf1' + size + self.classifier + self.method + str(self.nbands) + self.data +
-                  transform + self.th, 'wb') as fi:
+                  transform + pca + self.th, 'wb') as fi:
             pickle.dump(cvf1, fi)
 
         # Plot confusion matrix
@@ -358,7 +369,7 @@ class TrainSelection:
             classes_list = list(range(0, int(self.classes)))
             plot_confusion_matrix(means, stds, classescf=classes_list)
             plt.savefig(folder + '//MatrixConfusion_' + self.method + self.classifier + size +
-                        str(self.nbands) + self.data + transform + '.png', dpi=600)
+                        str(self.nbands) + self.data + transform + pca + '.png', dpi=600)
 
     def selection(self, select=6):
         """Select the top k bands using the Greedy Spectral Selection method"""
@@ -415,7 +426,7 @@ class TrainSelection:
 
         # Set model
         models = Model(self.classifier, self.data, self.device, len(selection), self.windowSize,
-                       self.train_y, self.classes, self.pca)
+                       self.train_y, self.classes, self.pca, self.pls)
 
         # Select bands
         trainx = np.zeros((self.trainx.shape[0], 1, len(selection), self.windowSize, self.windowSize))
@@ -487,19 +498,14 @@ class TrainSelection:
 
 
 if __name__ == '__main__':
+    # Train using the bands selected by the other methods: Kochia
+    methods = ['GA', 'FNGBS', 'OCF', 'PLS']
+    transforms = [False, True]
+    bands = [6, 10]
+    for ba in bands:
+        for me in methods:
+            for tr in transforms:
+                net = TrainSelection(nbands=ba, method=me, transform=tr, average=True, batch_size=128,
+                                     epochs=130, plot=False, data='Kochia')
+                net.train()
 
-    # # Train using the bands selected by the other methods: Kochia
-    # methods = ['GA', 'FNGBS', 'OCF', 'PLS']
-    # transforms = [False, True]
-    # bands = [6, 10]
-    # for ba in bands:
-    #     for me in methods:
-    #         for tr in transforms:
-    #             net = TrainSelection(nbands=ba, method=me, transform=tr, average=True, batch_size=128,
-    #                                  epochs=130, plot=False, data='Kochia')
-    #             net.train()
-
-    net = TrainSelection(nbands=10, method='SSA', transform=True, average=True, batch_size=128,
-                                     epochs=130, plot=False, data='Kochia', vif=7, pca=True)
-    net.train()
-    net.validate()

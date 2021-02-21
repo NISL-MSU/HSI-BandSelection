@@ -7,7 +7,7 @@ import sys
 
 class Model:
 
-    def __init__(self, classifier, data, device, nbands, windowSize, train_y, classes, pca):
+    def __init__(self, classifier, data, device, nbands, windowSize, train_y, classes, pca, pls):
         """Create a ML object used to train the HSI datasets.
         @param classifier: Type of classifier. Options: CNN, ANN, SVM, or RF.
         @param data: Type of data. Options: Kochia, Avocado, IP.
@@ -17,6 +17,7 @@ class Model:
         @param train_y: Target data.
         @param classes: Number of classes.
         @para pca: If True, we apply PCA to reduce the number of bands to nbands.
+        @para pls: If True, we apply PLS to reduce the number of bands to nbands.
         """
         # Set instance variables
         self.classes = classes
@@ -25,6 +26,7 @@ class Model:
         self.nbands = nbands
         self.windowSize = windowSize
         self.pca = pca
+        self.pls = pls
 
         # Set the strategy that the model will use
         if classifier == 'CNN':
@@ -40,7 +42,7 @@ class Model:
 
         # Define the model using the selected strategy
         self.model = self.strategy.defineModel(self.device, self.data, self.nbands,
-                                               self.windowSize, self.classes, train_y, self.pca)
+                                               self.windowSize, self.classes, train_y, self.pca, self.pls)
 
     def trainFold(self, trainx, train_y, train, batch_size, epochs, valx, test, means, stds, filepath, printProc=True):
         """Train the network given a train-validation split

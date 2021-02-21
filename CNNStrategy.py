@@ -28,10 +28,11 @@ class CNNStrategy(ModelStrategy):
 
     def __init__(self):
         self.pca = None
+        self.pls = None
         self.nbands = None
         self.data = None
 
-    def defineModel(self, device, data, nbands, windowSize, classes, train_y, pca):
+    def defineModel(self, device, data, nbands, windowSize, classes, train_y, pca, pls):
         """Override model declaration method"""
         model = Hyper3DNetLite(img_shape=(1, nbands, windowSize, windowSize), classes=int(classes), data=data)
         model.to(device)
@@ -50,6 +51,7 @@ class CNNStrategy(ModelStrategy):
         optimizer = optim.Adadelta(model.parameters(), lr=1.0)
 
         self.pca = pca
+        self.pls = pls
         self.nbands = nbands
         self.data = data
 
@@ -126,6 +128,8 @@ class CNNStrategy(ModelStrategy):
         valxn = utils.applynormalize(valx, means, stds)
         if self.pca:
             valxn = utils.applyPCA(valxn, numComponents=self.nbands, dataset=self.data)
+        elif self.pls:
+            valxn = utils.applyPLS(valxn, numComponents=self.nbands, dataset=self.data)
 
         ypred = []
         with torch.no_grad():

@@ -9,6 +9,7 @@ from readSAT import *
 from scipy import stats
 import torch
 from sklearn.metrics import r2_score
+from sklearn.cross_decomposition import PLSRegression
 
 # import matplotlib.pyplot as plt
 np.random.seed(seed=7)  # Initialize seed to get reproducible results
@@ -91,7 +92,7 @@ def add_rotation_flip(x, y):
 
 
 def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', selection=None,
-              transform=False, data='', vifv=0, pca=False):
+              transform=False, data='', vifv=0, pca=False, pls=False):
     """Load one of the satellite HSI datasets"""
     if data == "IP" or data == "PU" or data == "SA":
         train_x, train_y = loadata(data)
@@ -139,9 +140,9 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
     if nbands < int(train_x.shape[3]) or selection is not None:
         if data == "Kochia":  # Selects indexes for the Kochia dataset
             if method == 'SSA':
-                if nbands == 6 and not pca:
+                if nbands == 6 and not pca and not pls:
                     indexes = [1, 18, 43, 68, 81, 143]
-                elif nbands == 10 and not pca:
+                elif nbands == 10 and not pca and not pls:
                     indexes = [2, 5, 18, 31, 42, 54, 68, 74, 79, 143]
                 elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
                     indexes = [2, 5, 18, 31, 42, 54, 65, 68, 74, 79, 85, 89, 103, 106, 128, 132, 137, 143, 147]
@@ -215,7 +216,7 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
 
         elif data == "IP":  # Selects indexes for the Avocado dataset
             if method == 'SSA':
-                if nbands == 5 and not pca:
+                if nbands == 5 and not pca and not pls:
                     indexes = [11, 25, 34, 39, 67]
                 elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
                     indexes = [2, 7, 11, 17, 26, 34, 39, 47, 56, 58, 60, 67, 74, 80, 89, 99, 104, 109, 125, 142, 144,
@@ -254,7 +255,7 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
 
         elif data == "SA":  # Selects indexes for the Avocado dataset
             if method == 'SSA':
-                if nbands == 5 and not pca:
+                if nbands == 5 and not pca and not pls:
                     indexes = [37, 60, 82, 92, 175]
                 elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
                     indexes = [2, 16, 19, 22, 27, 37, 60, 65, 91, 104, 106, 127, 147, 175, 202]
@@ -488,6 +489,43 @@ def applyPCA(Xc, numComponents=5, dataset='Kochia'):
     print("Explained variance in the test set:")
     print(r2_score(newX, pcaC.inverse_transform(pcaC.transform(newX)), multioutput='variance_weighted'))
     newX = pcaC.transform(newX)
+    newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
+    newX = newX.transpose((0, 4, 3, 1, 2))
+    return newX
+
+
+def getPLS(Xc, yc, numComponents=5, dataset='Kochia'):
+    """Reduce the number of components or channels using PLS"""
+    newX = Xc.transpose((0, 3, 4, 2, 1))
+    newX = np.reshape(newX, (-1, newX.shape[3]))
+    # Inflate the labels so that len(newY) matches len(newX)
+    newY = []
+    for yi in yc:
+        for rep in range(int(len(newX) / len(yc))):
+            newY.append(yi)
+    PLS_transform = PLSRegression(n_components=numComponents)
+    PLS_transform.fit(newX, newY)
+    newX = PLS_transform.transform(newX)
+    # print("Explained variance in the training set:")
+    # print(np.sum(PLS_transform.explained_variance_ratio_))
+    newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
+    newX = newX.transpose((0, 4, 3, 1, 2))
+    # Save pca transformation
+    file = dataset + "//results//PLS_transformations//PLS_" + str(numComponents)
+    with open(file, 'wb') as f:
+        pickle.dump(PLS_transform, f)
+    return newX
+
+
+def applyPLS(Xc, numComponents=5, dataset='Kochia'):
+    """Apply previously calculated PCA transformation"""
+    # Load pca transformation
+    file = dataset + "//results//PLS_transformations//pls_" + str(numComponents)
+    with open(file, 'rb') as f:
+        PLSC = pickle.load(f)
+    newX = Xc.transpose((0, 3, 4, 2, 1))
+    newX = np.reshape(newX, (-1, newX.shape[3]))
+    newX = PLSC.transform(newX)
     newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
     newX = newX.transpose((0, 4, 3, 1, 2))
     return newX
