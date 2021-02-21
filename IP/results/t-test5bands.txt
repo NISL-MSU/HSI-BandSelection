@@ -1,0 +1,13 @@
+print(stats.ttest_rel(df['GSS'], df['IBRA-PLS']))
+print(stats.ttest_rel(df['GSS'], df['IBRA-PCA']))
+print(stats.ttest_rel(df['GSS'], df['HAGRID']))
+print(stats.ttest_rel(df['GSS'], df['OCF']))
+print(stats.ttest_rel(df['GSS'], df['PLS-DA']))
+print(stats.ttest_rel(df['GSS'], df['FNGBS']))
+
+Ttest_relResult(statistic=5.763012130352388, pvalue=0.0002718076949889121)
+Ttest_relResult(statistic=11.969998598081302, pvalue=7.865814775187436e-07)
+Ttest_relResult(statistic=7.699322009743164, pvalue=3.00208055292515e-05)
+Ttest_relResult(statistic=5.006959201849547, pvalue=0.0007319846490779683)
+Ttest_relResult(statistic=8.821368925015673, pvalue=1.0056640501770614e-05)
+Ttest_relResult(statistic=3.2159829539590037, pvalue=0.010557153968696264)
