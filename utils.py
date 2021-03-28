@@ -9,6 +9,7 @@ from readSAT import *
 from scipy import stats
 import torch
 from sklearn.metrics import r2_score
+from numpy.random import binomial as binom
 from sklearn.cross_decomposition import PLSRegression
 
 # import matplotlib.pyplot as plt
@@ -529,3 +530,23 @@ def applyPLS(Xc, numComponents=5, dataset='Kochia'):
     newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
     newX = newX.transpose((0, 4, 3, 1, 2))
     return newX
+
+
+def permutationTest(scores1, scores2):
+    """Perform a permutation paired t-test"""
+    # Calculate the real differences between two samples
+    d = np.array(scores1) - np.array(scores2)
+    n = len(scores1)
+    # Sets the number of iterations
+    reps = 10000
+    # Create permutation matrix
+    x = 1 - 2 * binom(1, .5, 10 * reps)
+    x.shape = (reps, n)
+    # Apply permutations
+    sim = x * d
+    # Get distribution of simulated t-values
+    dist = sim.mean(axis=1) / (sim.std(axis=1, ddof=1) / np.sqrt(n))
+    # Get real t-value
+    observed_ts = d.mean() / (d.std(ddof=1) / np.sqrt(n))
+    # Return 2-sided p-value
+    return np.mean(np.abs(dist) >= np.abs(observed_ts))
