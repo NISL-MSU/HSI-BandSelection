@@ -508,4 +508,3 @@ if __name__ == '__main__':
                 net = TrainSelection(nbands=ba, method=me, transform=tr, average=True, batch_size=128,
                                      epochs=130, plot=False, data='Kochia')
                 net.train()
-

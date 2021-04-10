@@ -181,6 +181,11 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
                     indexes = [35, 73, 88, 129, 134, 140]
                 elif nbands == 10:
                     indexes = [23, 31, 35, 69, 73, 120, 129, 134, 140, 147]
+            elif method == 'SRSSIM':
+                if nbands == 6:
+                    indexes = [2, 16, 42, 48, 55, 76]
+                elif nbands == 10:
+                    indexes = [2, 4, 16, 30, 42, 48, 55, 71, 75, 76]
 
         elif data == "Avocado":  # Selects indexes for the Avocado dataset
             if method == 'SSA':
@@ -253,6 +258,9 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
             elif method == 'PLS':
                 if nbands == 5:
                     indexes = [4, 27, 83, 96, 148]
+            elif method == 'SRSSIM':
+                if nbands == 5:
+                    indexes = [28, 52, 91, 104, 121]
 
         elif data == "SA":  # Selects indexes for the Avocado dataset
             if method == 'SSA':
@@ -294,6 +302,9 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
                     indexes = [13, 38, 80]
                 elif nbands == 5:
                     indexes = [10, 13, 38, 80, 146]
+            elif method == 'SRSSIM':
+                if nbands == 5:
+                    indexes = [5, 47, 61, 81, 201]
 
         if selection is not None:
             indexes = selection
