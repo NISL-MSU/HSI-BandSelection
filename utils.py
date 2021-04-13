@@ -93,7 +93,7 @@ def add_rotation_flip(x, y):
 
 
 def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', selection=None,
-              transform=False, data='', vifv=0, pca=False, pls=False):
+              transform=False, data='', vifv=0, pca=False, pls=False, normalization=False):
     """Load one of the satellite HSI datasets"""
     if data == "IP" or data == "PU" or data == "SA":
         train_x, train_y = loadata(data)
@@ -330,8 +330,9 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
 
             train_x = temp.astype(np.float32)
 
-    if data == "Avocado":
-        train_x, train_y = add_rotation_flip(train_x, train_y)
+    # Apply normalization from the beginning (used for the IBRA method)
+    if normalization:
+        train_x, _, _ = normalize(train_x)
 
     return train_x, train_y, indexes
 
@@ -342,9 +343,14 @@ def normalize(trainx):
     means = np.zeros((trainx.shape[2], 1))
     stds = np.zeros((trainx.shape[2], 1))
     for n in range(trainx.shape[2]):
-        means[n, ] = np.mean(trainxn[:, :, n, :, :])
-        stds[n, ] = np.std(trainxn[:, :, n, :, :])
-        trainxn[:, :, n, :, :] = (trainxn[:, :, n, :, :] - means[n, ]) / (stds[n, ])
+        if trainx.ndim == 5:  # Apply normalization to the data that is already in Pytorch format
+            means[n, ] = np.mean(trainxn[:, :, n, :, :])
+            stds[n, ] = np.std(trainxn[:, :, n, :, :])
+            trainxn[:, :, n, :, :] = (trainxn[:, :, n, :, :] - means[n, ]) / (stds[n, ])
+        elif trainx.ndim == 4:
+            means[n, ] = np.mean(trainxn[:, :, :, n])
+            stds[n, ] = np.std(trainxn[:, :, :, n])
+            trainxn[:, :, :, n] = (trainxn[:, :, :, n] - means[n, ]) / (stds[n, ])
     return trainxn, means, stds
 
 
