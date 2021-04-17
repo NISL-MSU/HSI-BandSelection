@@ -529,7 +529,7 @@ def getPLS(Xc, yc, numComponents=5, dataset='Kochia'):
     newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
     newX = newX.transpose((0, 4, 3, 1, 2))
     # Save pca transformation
-    file = dataset + "//results//PLS_transformations//PLS_" + str(numComponents)
+    file = dataset + "//results//PLS_transformations//pls_" + str(numComponents)
     with open(file, 'wb') as f:
         pickle.dump(PLS_transform, f)
     return newX
