@@ -143,6 +143,8 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
             if method == 'SSA':
                 if nbands == 6 and not pca and not pls:
                     indexes = [1, 18, 43, 68, 81, 143]
+                elif nbands == 8 and not pca and not pls:
+                    indexes = [0, 4, 18, 31, 45, 63, 68, 74]
                 elif nbands == 10 and not pca and not pls:
                     indexes = [2, 5, 18, 31, 42, 54, 68, 74, 79, 143]
                 elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
@@ -179,6 +181,8 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
             elif method == 'PLS':
                 if nbands == 6:
                     indexes = [35, 73, 88, 129, 134, 140]
+                elif nbands == 8:
+                    indexes = [23, 31, 35, 62, 71, 88, 113, 118]
                 elif nbands == 10:
                     indexes = [23, 31, 35, 69, 73, 120, 129, 134, 140, 147]
             elif method == 'SRSSIM':
