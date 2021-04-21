@@ -166,16 +166,22 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
             elif method == 'FNGBS':
                 if nbands == 6:
                     indexes = [14, 51, 78, 106, 111, 148]
+                elif nbands == 8:
+                    indexes = [14, 35, 51, 67, 78, 94, 111, 148]
                 elif nbands == 10:
                     indexes = [14, 32, 33, 51, 67, 85, 100, 111, 128, 144]
             elif method == 'OCF':
                 if nbands == 6:
                     indexes = [1, 129, 77, 82, 24, 42]
+                elif nbands == 8:
+                    indexes = [35, 63, 72, 78, 95, 97, 118, 138]
                 elif nbands == 10:
                     indexes = [1, 15, 34, 42, 48, 56, 77, 82, 129, 132]
             elif method == 'GA':
                 if nbands == 6:
                     indexes = [4, 21, 40, 61, 124, 138]
+                elif nbands == 8:
+                    indexes = [5, 14, 26, 45, 65, 84, 95, 102]
                 elif nbands == 10:
                     indexes = [12, 30, 50, 69, 82, 98, 118, 132, 140, 146]
             elif method == 'PLS':
@@ -188,6 +194,8 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
             elif method == 'SRSSIM':
                 if nbands == 6:
                     indexes = [2, 16, 42, 48, 55, 76]
+                elif nbands == 8:
+                    indexes = [2, 4, 16, 42, 48, 55, 75, 76]
                 elif nbands == 10:
                     indexes = [2, 4, 16, 30, 42, 48, 55, 71, 75, 76]
 
