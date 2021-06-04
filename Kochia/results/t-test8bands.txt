@@ -1,0 +1,31 @@
+print(stats.ttest_rel(df['GSS'], df['IBRA-PLS']))
+print(stats.ttest_rel(df['GSS'], df['IBRA-PCA']))
+print(stats.ttest_rel(df['GSS'], df['HAGRID']))
+print(stats.ttest_rel(df['GSS'], df['OCF']))
+print(stats.ttest_rel(df['GSS'], df['PLS-DA']))
+print(stats.ttest_rel(df['GSS'], df['SR-SSIM']))
+print(stats.ttest_rel(df['GSS'], df['FNGBS']))
+
+# Perform permutation t-test
+print(utils.permutationTest(df['GSS'], df['IBRA-PLS']))
+print(utils.permutationTest(df['GSS'], df['IBRA-PCA']))
+print(utils.permutationTest(df['GSS'], df['HAGRID']))
+print(utils.permutationTest(df['GSS'], df['OCF']))
+print(utils.permutationTest(df['GSS'], df['PLS-DA']))
+print(utils.permutationTest(df['GSS'], df['SR-SSIM']))
+print(utils.permutationTest(df['GSS'], df['FNGBS']))
+
+Ttest_relResult(statistic=-2.7788297901488748, pvalue=0.021441744302054998)
+Ttest_relResult(statistic=14.09709219902519, pvalue=1.9319141571635204e-07)
+Ttest_relResult(statistic=7.16119009986836, pvalue=5.301530025107062e-05)
+Ttest_relResult(statistic=5.112110631648876, pvalue=0.0006346935728249685)
+Ttest_relResult(statistic=8.050612645838344, pvalue=2.1046417349607207e-05)
+Ttest_relResult(statistic=10.376658585298939, pvalue=2.628156284800846e-06)
+Ttest_relResult(statistic=12.867866310709003, pvalue=4.238789917233022e-07)
+0.0052
+0.0018
+0.0016
+0.0035
+0.0026
+0.002
+0.0017
