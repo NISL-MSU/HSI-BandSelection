@@ -8,14 +8,14 @@ class ModelStrategy(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def trainFoldStrategy(self, model, trainx, train_y, train, batch_size, classes, device,
+    def trainFoldStrategy(self, trainx, train_y, train, batch_size, classes, device,
                           epochs, valx, test, means, stds, filepath, printProcess):
         pass
 
     @abc.abstractmethod
-    def loadModelStrategy(self, model, path):
+    def loadModelStrategy(self, path):
         pass
 
     @abc.abstractmethod
-    def evaluateFoldStrategy(self, model, valx, train_y, test, means, stds, batch_size, classes, device):
+    def evaluateFoldStrategy(self, valx, train_y, test, means, stds, batch_size, classes, device):
         pass

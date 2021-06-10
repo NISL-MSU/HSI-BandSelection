@@ -2,7 +2,7 @@ import utils
 import os
 import numpy as np
 import statsmodels.api as sm
-from networks import *
+from ClassificationStrategy.networks import *
 from sklearn.model_selection import StratifiedKFold
 import torch
 import pickle
@@ -10,7 +10,7 @@ import pandas as pd
 from sklearn.metrics import precision_recall_fscore_support
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from Model import Model
+from ClassificationStrategy.Model import Model
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""

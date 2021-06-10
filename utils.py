@@ -5,7 +5,7 @@ from scipy.stats import norm
 import statsmodels.api as sm
 import pickle
 import cv2
-from readSAT import *
+from Data.readSAT import *
 from scipy import stats
 import torch
 from sklearn.metrics import r2_score
@@ -34,7 +34,7 @@ def generic_gaussians(indices, bandwidth, L):
     # half maximum of a Gaussian), calculate the standard deviation
     # FWHM = 2*sqrt(2ln(2))*stdev => stdev = FWHM/(2*sqrt(2ln(2)))
     stdev = np.divide(index_bandwidth, np.multiply(2, np.sqrt(np.multiply(np.log(2), 2))))
-
+    
     for ind in indices:
         curve = np.linspace(0, L, L)
         pdf = norm.pdf(curve, ind, stdev)
@@ -567,7 +567,7 @@ def permutationTest(scores1, scores2):
     d = np.array(scores1) - np.array(scores2)
     n = len(scores1)
     # Sets the number of iterations
-    reps = 10000
+    reps = 1000
     # Create permutation matrix
     x = 1 - 2 * binom(1, .5, 10 * reps)
     x.shape = (reps, n)

@@ -1,7 +1,7 @@
-from CNNStrategy import CNNStrategy
-from SVMStrategy import SVMStrategy
-from RFStrategy import RFStrategy
-from ANNStrategy import ANNStrategy
+from ClassificationStrategy.CNNStrategy import CNNStrategy
+from ClassificationStrategy.SVMStrategy import SVMStrategy
+from ClassificationStrategy.RFStrategy import RFStrategy
+from ClassificationStrategy.ANNStrategy import ANNStrategy
 import sys
 
 
@@ -41,7 +41,7 @@ class Model:
             sys.exit('The only available classifiers are: CNN, ANN, SVM, and RF.')
 
         # Define the model using the selected strategy
-        self.model = self.strategy.defineModel(self.device, self.data, self.nbands,
+        self.strategy.defineModel(self.device, self.data, self.nbands,
                                                self.windowSize, self.classes, train_y, self.pca, self.pls)
 
     def trainFold(self, trainx, train_y, train, batch_size, epochs, valx, test, means, stds, filepath, printProc=True):
@@ -58,7 +58,7 @@ class Model:
         @param filepath: Path used to store the trained model.
         @param printProc: If True, prints all the training process
         """
-        self.strategy.trainFoldStrategy(self.model, trainx, train_y, train, batch_size, self.classes, self.device,
+        self.strategy.trainFoldStrategy(trainx, train_y, train, batch_size, self.classes, self.device,
                                         epochs, valx, test, means, stds, filepath, printProc)
 
     def evaluateFold(self, valx, train_y, test, means, stds, batch_size):
@@ -70,11 +70,11 @@ class Model:
         @param stds: Standard deviation of each spectral band calculated in the training set.
         @param batch_size: Size of the mini-batch (Used for the CNN).
         """
-        return self.strategy.evaluateFoldStrategy(self.model, valx, train_y, test,
-                                                  means, stds, batch_size, self.classes, self.device)
+        return self.strategy.evaluateFoldStrategy(valx, train_y, test, means, stds,
+                                                  batch_size, self.classes, self.device)
 
     def loadModel(self, path):
         """Load a saved model
         @param path: File path with the saved model.
         """
-        self.model = self.strategy.loadModelStrategy(self.model, path)
+        self.strategy.loadModelStrategy(path)

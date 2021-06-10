@@ -1,17 +1,20 @@
-from ModelStrategy import ModelStrategy
-from sklearn.ensemble import RandomForestClassifier
+from ClassificationStrategy.ModelStrategy import ModelStrategy
+from sklearn import svm
 import numpy as np
 import utils
 import pickle
 
 
-class RFStrategy(ModelStrategy):
+class SVMStrategy(ModelStrategy):
 
-    def defineModel(self, device, data, nbands, windowSize, classes, train_y):
+    def __init__(self):
+        self.model = None
+
+    def defineModel(self, device, data, nbands, windowSize, classes, train_y, pca, pls):
         """Override model declaration method"""
-        return RandomForestClassifier(n_jobs=-1, max_features=5, n_estimators=500, max_depth=200, random_state=7)
+        return svm.SVC(C=1000, gamma='auto', max_iter=5000000, random_state=7)
 
-    def trainFoldStrategy(self, model, trainx, train_y, train, batch_size, classes, device,
+    def trainFoldStrategy(self, trainx, train_y, train, batch_size, classes, device,
                           epochs, valx, test, means, stds, filepath, printProcess=True):
         # Permute and reshape the data
         X = trainx.copy()[:, 0, :, :, :]
@@ -31,17 +34,17 @@ class RFStrategy(ModelStrategy):
         np.random.seed(seed=7)  # Initialize seed to get reproducible results
         ind = [i for i in range(X.shape[0])]
         np.random.shuffle(ind)
-        X = X[ind][0:10000, :]
-        Y = Y[ind][0:10000]
+        X = X[ind][0:8000, :]
+        Y = Y[ind][0:8000]
 
         # Train model
-        model.fit(X, Y)
+        self.model.fit(X, Y)
 
         # Save model
         with open(filepath, 'wb') as fi:
-            pickle.dump(model, fi)
+            pickle.dump(self.model, fi)
 
-    def evaluateFoldStrategy(self, model, valx, train_y, test, means, stds, batch_size, classes, device):
+    def evaluateFoldStrategy(self, valx, train_y, test, means, stds, batch_size, classes, device):
         # Normalize the validation set based on the previous statistics
         valxn = utils.applynormalize(valx, means, stds)
         # Permute and reshape the data
@@ -65,11 +68,10 @@ class RFStrategy(ModelStrategy):
         X = X[ind]
         Y = Y[ind]
 
-        ypred = model.predict(X)
+        ypred = self.model.predict(X)
 
         return Y, ypred
 
-    def loadModelStrategy(self, model, path):
+    def loadModelStrategy(self, path):
         with open(path, 'rb') as f:
-            model = pickle.load(f)
-        return model
+            self.model = pickle.load(f)

@@ -170,7 +170,7 @@ if __name__ == '__main__':
 
     interB = InterBandRedundancy(dataset=data, flag_average=average, normalize=True)
     # interB.plotSample()
-    th = 23  # VIF threshold
+    th = 12  # VIF threshold
 
     for t in reversed(range(5, th + 1)):  # Test values from 10 to 5
         print("VIF THRESHOLD: " + str(t))
