@@ -88,3 +88,16 @@ This repository contains the following scripts:
 <img src=https://github.com/GiorgioMorales/HSI-BandSelection/blob/master/Figures/Comparison1.jpg alt="alt text" width=550 height=420>
 
 <img src=https://github.com/GiorgioMorales/HSI-BandSelection/blob/master/Figures/Comparison2.jpg alt="alt text" width=550 height=320>
+
+
+# Citation
+Use this Bibtex to cite this repository
+
+```
+@misc{2106.00645,
+Author = {Giorgio Morales and John Sheppard and Riley Logan and Joseph Shaw},
+Title = {Hyperspectral Band Selection for Multispectral Image Classification with Convolutional Networks},
+Year = {2021},
+Eprint = {arXiv:2106.00645},
+}
+```
