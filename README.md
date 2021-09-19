@@ -94,6 +94,22 @@ This repository contains the following scripts:
 Use this Bibtex to cite this repository
 
 ```
+@Article{rs13183649,
+AUTHOR = {Morales, Giorgio and Sheppard, John W. and Logan, Riley D. and Shaw, Joseph A.},
+TITLE = {Hyperspectral Dimensionality Reduction Based on Inter-Band Redundancy Analysis and Greedy Spectral Selection},
+JOURNAL = {Remote Sensing},
+VOLUME = {13},
+YEAR = {2021},
+NUMBER = {18},
+ARTICLE-NUMBER = {3649},
+URL = {https://www.mdpi.com/2072-4292/13/18/3649},
+ISSN = {2072-4292},
+DOI = {10.3390/rs13183649}
+}
+```
+
+
+```
 @misc{2106.00645,
 Author = {Giorgio Morales and John Sheppard and Riley Logan and Joseph Shaw},
 Title = {Hyperspectral Band Selection for Multispectral Image Classification with Convolutional Networks},
