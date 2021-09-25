@@ -502,9 +502,12 @@ if __name__ == '__main__':
     methods = ['GA', 'FNGBS', 'OCF', 'PLS']
     transforms = [False, True]
     bands = [6, 10]
-    for ba in bands:
-        for me in methods:
-            for tr in transforms:
-                net = TrainSelection(nbands=ba, method=me, transform=tr, average=True, batch_size=128,
-                                     epochs=130, plot=False, data='Kochia')
-                net.train()
+    # for ba in bands:
+    #     for me in methods:
+    #         for tr in transforms:
+    #             net = TrainSelection(nbands=ba, method=me, transform=tr, average=True, batch_size=128,
+    #                                  epochs=130, plot=False, data='Kochia')
+    #             net.train()
+
+    net = TrainSelection(nbands=5, method='GSS', transform=False, average=False, batch_size=128,
+                         epochs=130, plot=False, data='SA')

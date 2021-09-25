@@ -352,9 +352,13 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
 def normalize(trainx):
     """Normalize and returns the calculated means and stds for each band"""
     trainxn = trainx.copy()
-    means = np.zeros((trainx.shape[2], 1))
-    stds = np.zeros((trainx.shape[2], 1))
-    for n in range(trainx.shape[2]):
+    if trainx.ndim == 5:
+        dim = trainx.shape[2]
+    else:
+        dim = trainx.shape[3]
+    means = np.zeros((dim, 1))
+    stds = np.zeros((dim, 1))
+    for n in range(dim):
         if trainx.ndim == 5:  # Apply normalization to the data that is already in Pytorch format
             means[n, ] = np.mean(trainxn[:, :, n, :, :])
             stds[n, ] = np.std(trainxn[:, :, n, :, :])
@@ -540,7 +544,7 @@ def getPLS(Xc, yc, numComponents=5, dataset='Kochia'):
     # print(np.sum(PLS_transform.explained_variance_ratio_))
     newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
     newX = newX.transpose((0, 4, 3, 1, 2))
-    # Save pca transformation
+    # Save pls transformation
     file = dataset + "//results//PLS_transformations//pls_" + str(numComponents)
     with open(file, 'wb') as f:
         pickle.dump(PLS_transform, f)
