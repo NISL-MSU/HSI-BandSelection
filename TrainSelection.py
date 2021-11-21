@@ -238,7 +238,7 @@ class TrainSelection:
 
             # Reset all weights if training a CNN
             if self.classifier == 'CNN' or self.classifier == 'ANN':
-                self.model.strategy.network.apply(weight_reset)
+                self.model.strategy.model.network.apply(weight_reset)
 
             ntrain += 1
 
