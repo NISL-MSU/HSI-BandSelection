@@ -107,24 +107,24 @@ class InterBandRedundancy:
         # Plot graph
         fig, ax = plt.subplots()
         ax.set_ylabel('Reflectance')
-        ax.set_xlabel('x : Band Index')
+        ax.set_xlabel('n : Band Index')
         clrs = sns.color_palette()
         with sns.axes_style("darkgrid"):
-            epochs = list(range(self.train_x.shape[3]))
-            ax.plot(epochs, means0, c=clrs[0], linestyle='-', linewidth=2.5, label='Susceptible Kochia')
-            ax.fill_between(epochs, means0 - stds0, means0 + stds0, alpha=0.3, facecolor=clrs[0])
+            epochss = list(range(self.train_x.shape[3]))
+            ax.plot(epochss, means0, c=clrs[0], linestyle='-', linewidth=2.5, label='Susceptible Kochia')
+            ax.fill_between(epochss, means0 - stds0, means0 + stds0, alpha=0.3, facecolor=clrs[0])
             ax.legend()
-            ax.plot(epochs, means1, c=clrs[1], linestyle=':', linewidth=2.5, label='Glyphosate Resistant')
-            ax.fill_between(epochs, means1 - stds1, means1 + stds1, alpha=0.3, facecolor=clrs[1])
+            ax.plot(epochss, means1, c=clrs[1], linestyle=':', linewidth=2.5, label='Glyphosate Resistant')
+            ax.fill_between(epochss, means1 - stds1, means1 + stds1, alpha=0.3, facecolor=clrs[1])
             ax.legend()
-            ax.plot(epochs, means2, c=clrs[2], linestyle='-.', linewidth=3, label='Dicamba Resistant')
-            ax.fill_between(epochs, means2 - stds2, means2 + stds2, alpha=0.3, facecolor=clrs[2])
+            ax.plot(epochss, means2, c=clrs[2], linestyle='-.', linewidth=3, label='Dicamba Resistant')
+            ax.fill_between(epochss, means2 - stds2, means2 + stds2, alpha=0.3, facecolor=clrs[2])
             ax.legend()
         with open("Kochia//plots//Kochia_distances_VIF12", 'rb') as fil:
             ds = list(pickle.load(fil))
         ax2 = ax.twinx()  # position of the xticklabels in the old x-axis
-        ax2.set_ylabel('d(x) = |d_left(x) - d_right(x)|')
-        ax2.plot(epochs, ds, c='k')
+        ax2.set_ylabel('d(x_n) = |d_left(x_n) - d_right(x_n)|')
+        ax2.plot(epochss, ds, c='k')
         ds.insert(0, 100)  # Add high values at the beginning and the end so that initial
         ds.append(100)
         indx, _ = find_peaks(np.max(ds) - ds, height=0)
@@ -169,7 +169,7 @@ if __name__ == '__main__':
         batch = 2048  # 1024 for Kochia
 
     interB = InterBandRedundancy(dataset=data, flag_average=average, normalize=True)
-    # interB.plotSample()
+    interB.plotSample()
     th = 12  # VIF threshold
 
     for t in reversed(range(5, th + 1)):  # Test values from 10 to 5
