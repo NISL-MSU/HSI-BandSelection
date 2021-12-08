@@ -172,6 +172,11 @@ class TrainSelection:
         cvf1 = []
 
         # If the folder does not exist, create it
+        folder = self.data
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+            os.mkdir(folder + "//results//")
+            os.mkdir(folder + "//results//" + self.method)
         folder = self.data + "//results//" + self.method + "//" + str(self.nbands) + " bands"
         if not os.path.exists(folder):
             os.mkdir(folder)
