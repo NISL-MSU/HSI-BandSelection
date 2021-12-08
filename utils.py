@@ -95,8 +95,11 @@ def add_rotation_flip(x, y):
 def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', selection=None,
               transform=False, data='', vifv=0, pca=False, pls=False, normalization=False):
     """Load one of the satellite HSI datasets"""
-    if data == "IP" or data == "PU" or data == "SA":
-        train_x, train_y = loadata(data)
+    compressed = False  # Flag used to load the compressed datasets
+    if method == 'Compressed':
+        compressed = True
+    if data == "IP" or data == "PU" or data == "SA" or data == "KSC" or data == "BSW":
+        train_x, train_y = loadata(data, compressed)
         train_x, train_y = createImageCubes(train_x, train_y, window=5)
     else:
         """Load Kochia or Avocado dataset"""

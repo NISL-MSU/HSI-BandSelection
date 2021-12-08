@@ -71,7 +71,7 @@ class TrainSelection:
                  pca=False, pls=False):
         """
         @param nbands: Desired number of bands.
-        @param method: Band selection method. Options: 'SSA', 'OCF', 'GA', 'PLS', 'FNGBS', 'FullSpec'.
+        @param method: Band selection method. Options: 'SSA', 'OCF', 'GA', 'PLS', 'FNGBS', 'FullSpec', 'Compressed.
         @param classifier: Type of model used to train the classifiers. Options: 'CNN', 'SVM', 'RF'.
         @param transform: Flag used to simulate Gaussian bandwidths.
         @param average: Flag used to reduce the number of bands averaging consecutive bands.
@@ -82,9 +82,9 @@ class TrainSelection:
         @param selection: Load only the selected bands from the dataset
         @param th: Optional index to add in the end of the generated files
         @param median: If True, perform a median filtering on the spectral bands.
-        @para pca: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
+        @param pca: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
         bands using PCA.
-        @para pls: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
+        @param pls: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
         bands using LDA.
         """
         if selection is not None:
@@ -111,6 +111,9 @@ class TrainSelection:
         # Reshape as a 4-D TENSOR
         self.trainx = np.reshape(self.trainx, (self.trainx.shape[0], self.trainx.shape[1], self.trainx.shape[2],
                                                self.trainx.shape[3], 1))
+        # In case of using Kyle Webster's compression method, the number of bands is decided by the imported data
+        if self.method == 'Compressed':
+            self.nbands = self.trainx.shape[3]
         # Find the minimum and maximum values per dimension
         self.minD = np.zeros((self.nbands,))
         self.maxD = np.zeros((self.nbands,))
@@ -467,7 +470,7 @@ class TrainSelection:
             f1t += f1
             # Reset all weights if training a CNN or ANN
             if self.classifier == 'CNN' or self.classifier == 'ANN':
-                models.model.network.apply(weight_reset)
+                models.strategy.model.network.apply(weight_reset)
 
         return f1t / 10
 
@@ -509,5 +512,7 @@ if __name__ == '__main__':
     #                                  epochs=130, plot=False, data='Kochia')
     #             net.train()
 
-    net = TrainSelection(nbands=5, method='GSS', transform=False, average=False, batch_size=128,
-                         epochs=130, plot=False, data='SA')
+    # Kyle's experiment
+    net = TrainSelection(method='Compressed', transform=False, average=False, batch_size=128,
+                         epochs=130, plot=False, data='IP')
+    net.train()

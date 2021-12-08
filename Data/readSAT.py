@@ -6,19 +6,31 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 
 
-def loadata(name):
+def loadata(name, compressed):
     data_path = os.path.join(os.getcwd(), 'Data')
+    comp = ''
+    if compressed:
+        comp = '_compressed'
+
     if name == 'IP':
-        dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected.mat'))['indian_pines_corrected']
+        dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected' + comp + '.mat'))['indian_pines_corrected']
         label = sio.loadmat(os.path.join(data_path, 'Indian_pines_gt.mat'))['indian_pines_gt']
         return dat, label
     elif name == 'SA':
-        dat = sio.loadmat(os.path.join(data_path, 'Salinas_corrected.mat'))['salinas_corrected']
+        dat = sio.loadmat(os.path.join(data_path, 'Salinas_corrected' + comp + '.mat'))['salinas_corrected']
         label = sio.loadmat(os.path.join(data_path, 'Salinas_gt.mat'))['salinas_gt']
         return dat, label
     elif name == 'PU':
-        dat = sio.loadmat(os.path.join(data_path, 'PaviaU.mat'))['paviaU']
+        dat = sio.loadmat(os.path.join(data_path, 'PaviaU' + comp + '.mat'))['paviaU']
         label = sio.loadmat(os.path.join(data_path, 'PaviaU_gt.mat'))['paviaU_gt']
+        return dat, label
+    elif name == 'KSC':
+        dat = sio.loadmat(os.path.join(data_path, 'KSC' + comp + '.mat'))['KSC']
+        label = sio.loadmat(os.path.join(data_path, 'KSC_gt.mat'))['KSC_gt']
+        return dat, label
+    elif name == 'BSW':
+        dat = sio.loadmat(os.path.join(data_path, 'Botswana' + comp + '.mat'))['Botswana']
+        label = sio.loadmat(os.path.join(data_path, 'Botswana_gt.mat'))['Botswana_gt']
         return dat, label
 
 
