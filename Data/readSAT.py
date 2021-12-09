@@ -13,7 +13,10 @@ def loadata(name, compressed):
         comp = '_compressed'
 
     if name == 'IP':
-        dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected' + comp + '.mat'))['indian_pines_corrected']
+        if compressed:
+            dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected_compressed.mat'))['indian_pines']
+        else:
+            dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected.mat'))['indian_pines_corrected']
         label = sio.loadmat(os.path.join(data_path, 'Indian_pines_gt.mat'))['indian_pines_gt']
         return dat, label
     elif name == 'SA':

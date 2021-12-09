@@ -177,6 +177,9 @@ class TrainSelection:
             os.mkdir(folder)
             os.mkdir(folder + "//results//")
             os.mkdir(folder + "//results//" + self.method)
+        folder = self.data + "//results//" + self.method
+        if not os.path.exists(folder):
+            os.mkdir(folder)
         folder = self.data + "//results//" + self.method + "//" + str(self.nbands) + " bands"
         if not os.path.exists(folder):
             os.mkdir(folder)
@@ -519,5 +522,5 @@ if __name__ == '__main__':
 
     # Kyle's experiment
     net = TrainSelection(method='Compressed', transform=False, average=False, batch_size=128,
-                         epochs=130, plot=False, data='IP')
+                         epochs=350, plot=False, data='IP')
     net.train()

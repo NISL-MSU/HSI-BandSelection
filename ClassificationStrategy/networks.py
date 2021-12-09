@@ -7,16 +7,23 @@ from torch import reshape
 class Hyper3DNetLite(nn.Module, ABC):
     def __init__(self, img_shape=(1, 50, 25, 25), classes=2, data='Kochia'):
         super(Hyper3DNetLite, self).__init__()
+
+        initial_padding_size = 1
         if data == 'Kochia' or data == 'Avocado':
             stride = 2
             out = 7
         else:
             stride = 1
             out = 5
+
+        # Define layers
         self.classes = classes
         self.img_shape = img_shape
+        print(img_shape)
 
-        self.conv_layer1 = nn.Sequential(nn.Conv3d(in_channels=img_shape[0], out_channels=16, kernel_size=3, padding=1),
+        self.conv_layer1 = nn.Sequential(nn.Conv3d(in_channels=img_shape[0], out_channels=16,
+                                                   kernel_size=3,
+                                                   padding=1),
                                          nn.ReLU(), nn.BatchNorm3d(16))
         self.conv_layer2 = nn.Sequential(nn.Conv3d(in_channels=16, out_channels=16, kernel_size=3, padding=1),
                                          nn.ReLU(), nn.BatchNorm3d(16))
