@@ -1,3 +1,5 @@
+[![Paper](https://img.shields.io/badge/Paper-OpenAccess-b31b1b.svg)](https://www.mdpi.com/2072-4292/13/18/3649)
+
 # Hyperspectral Band Selection for Multispectral Image Classification with Convolutional Networks
 
 ## Description
