@@ -1,4 +1,6 @@
 [![Paper](https://img.shields.io/badge/Paper-OpenAccess-b31b1b.svg)](https://www.mdpi.com/2072-4292/13/18/3649)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GiorgioMorales/HSI-BandSelection/blob/master/IP_SA_Clasification-Demo.ipynb)
+
 
 # Hyperspectral Band Selection for Multispectral Image Classification with Convolutional Networks
 
