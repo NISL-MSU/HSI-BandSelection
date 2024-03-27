@@ -4,7 +4,7 @@ import torch
 import pickle
 from scipy import stats
 from scipy import ndimage
-from .Data.readSAT import *
+from HSIBandSelection.readSAT import *
 from scipy import integrate
 from scipy.stats import norm
 import statsmodels.api as sm
