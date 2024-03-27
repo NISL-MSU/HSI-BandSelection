@@ -2,9 +2,3 @@
 requires = ["setuptools>=42"]
 include-package-data = true
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-# scanning for namespace packages is true by default in pyproject.toml, so
-# you need NOT include this configuration.
-namespaces = true
-where = ["src"]
