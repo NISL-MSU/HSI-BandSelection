@@ -1,12 +1,10 @@
 [build-system]
 requires = ["setuptools>=42"]
-include-package-data = true
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
+[tool.setuptools.find]
 namespaces = true
-where = ["src"]
+where = "src"
 
-[tool.setuptools.package-data]
-HSIBandSelection = ["*.txt"]
-"HSIBandSelection.Data" = ["*.rst"]
+[tool.setuptools.package_data]
+HSIBandSelection = ["Data/*.mat"]
