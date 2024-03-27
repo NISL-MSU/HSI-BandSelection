@@ -6,7 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 
 
-def loadata(name, compressed):
+def loadata(name, compressed=False):
     data_path = 'src/HSIBandSelection/Data'
     comp = ''
     if compressed:
