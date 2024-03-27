@@ -1,1 +1,1 @@
-recursive-include src/HSIBandSelection/Data *
+recursive-include src/HSIBandSelection/Data/*.mat
