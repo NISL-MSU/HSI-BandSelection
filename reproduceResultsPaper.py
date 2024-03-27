@@ -100,7 +100,7 @@ if __name__ == '__main__':
         new_dataset = load_predefined_data(nbands=nbands, flag_average=average, method=method, transform=transform,
                                            data=data, selection=indexes, median=medianF, vifv=t, pca=pca, pls=pls)
         net = TrainSelection(method=method, classifier=classifier, batch_size=batch, pca=pca, pls=pls,
-                             epochs=epochs, plot=False, selection=indexes, th=str(t), dataset=new_dataset, size=size)
+                             epochs=epochs, plot=False, th=str(t), dataset=new_dataset, size=size)
         if method == 'GSS':
             index, entr = net.selection(select=nbands)
             # Save selected bands as txt file
@@ -124,6 +124,6 @@ if __name__ == '__main__':
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
             net = TrainSelection(method=method, classifier=classifier, batch_size=batch, pca=pca, pls=pls,
-                                 epochs=epochs, plot=False, selection=indexes, th=str(t), dataset=new_dataset, size=size)
+                                 epochs=epochs, plot=False, th=str(t), dataset=new_dataset, size=size)
             net.train()
             # net.validate()  # Store the evaluation metrics

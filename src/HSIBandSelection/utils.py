@@ -106,6 +106,19 @@ class Dataset:
             self.ind = [i for i in range(self.train_x.shape[-1])]
 
 
+@dataclass
+class Stats:
+    """Class used to save performance statistics"""
+    mean_accuracy: float
+    std_accuracy: float
+    mean_precision: float
+    std_precision: float
+    mean_recall: float
+    std_recall: float
+    mean_f1: float
+    std_f1: float
+
+
 def process_data(dataset: Dataset, flag_average=True, selection=None, transform=False, normalization=False):
     """Pre-process data before running band selection algorithms"""
     train_x, train_y, indexes = dataset.train_x, dataset.train_y, dataset.ind
@@ -120,8 +133,8 @@ def process_data(dataset: Dataset, flag_average=True, selection=None, transform=
     # Select indices
     if selection is not None:
         indexes = selection
-    indexes.sort()
-    print("Selecting bands: ", indexes)
+        indexes.sort()
+        print("Selecting bands: ", indexes)
 
     if transform:
         print("Transforming data...")
@@ -522,15 +535,18 @@ def getPCA(Xc, numComponents=5, dataset='Kochia'):
     file = dataset + "//results//PCA_transformations//pca_" + str(numComponents)
     with open(file, 'wb') as f:
         pickle.dump(pcaC, f)
-    return newX
+    return newX, pcaC
 
 
-def applyPCA(Xc, numComponents=5, dataset='Kochia'):
+def applyPCA(Xc, numComponents=5, transform=None, dataset='Kochia'):
     """Apply previously calculated PCA transformation"""
-    # Load pca transformation
-    file = dataset + "//results//PCA_transformations//pca_" + str(numComponents)
-    with open(file, 'rb') as f:
-        pcaC = pickle.load(f)
+    if transform is not None:
+        pcaC = transform
+    else:
+        # Load pca transformation
+        file = dataset + "//results//PCA_transformations//pca_" + str(numComponents)
+        with open(file, 'rb') as f:
+            pcaC = pickle.load(f)
     newX = Xc.transpose((0, 3, 4, 2, 1))
     newX = np.reshape(newX, (-1, newX.shape[3]))
     print("Explained variance in the training set:")
@@ -563,15 +579,18 @@ def getPLS(Xc, yc, numComponents=5, dataset='Kochia'):
     file = dataset + "//results//PLS_transformations//pls_" + str(numComponents)
     with open(file, 'wb') as f:
         pickle.dump(PLS_transform, f)
-    return newX
+    return newX, PLS_transform
 
 
-def applyPLS(Xc, numComponents=5, dataset='Kochia'):
+def applyPLS(Xc, numComponents=5, transform=None, dataset='Kochia'):
     """Apply previously calculated PCA transformation"""
-    # Load pca transformation
-    file = dataset + "//results//PLS_transformations//pls_" + str(numComponents)
-    with open(file, 'rb') as f:
-        PLSC = pickle.load(f)
+    if transform is not None:
+        PLSC = transform
+    else:
+        # Load pca transformation
+        file = dataset + "//results//PLS_transformations//pls_" + str(numComponents)
+        with open(file, 'rb') as f:
+            PLSC = pickle.load(f)
     newX = Xc.transpose((0, 3, 4, 2, 1))
     newX = np.reshape(newX, (-1, newX.shape[3]))
     newX = PLSC.transform(newX)

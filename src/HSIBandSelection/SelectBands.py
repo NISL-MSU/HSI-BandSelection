@@ -3,9 +3,9 @@ import torch
 import pickle
 import numpy as np
 from scipy.signal import find_peaks
-from src.HSIBandSelection.utils import Dataset, process_data
 from src.HSIBandSelection.TrainSelection import TrainSelection
 from src.HSIBandSelection.InterBandRedundancy import InterBandRedundancy
+from src.HSIBandSelection.utils import Dataset, process_data, applyPCA, applyPLS
 
 
 class SelectBands:
@@ -16,7 +16,7 @@ class SelectBands:
         :param dataset: utils.Dataset object
         :param method: Method name. Options: 'GSS', 'PCA' (IBRA+PCA), and 'PLS' (IBRA+PLS)
         :param classifier: Classifier type. Options: 'CNN' (if data is 2D), 'ANN', 'RF', 'SVM'
-        :param nbands: How many spectral bands you want to select
+        :param nbands: How many spectral bands you want to select or reduce to
         :param transform: If True, the final selected bands will suffer a Gaussian transformation to simulate being a multispectral band
         :param average: If True, average consecutive bands to reduce the initial total # of bands to half
         :param epochs: Number of iterations used to train the NN models
@@ -31,13 +31,15 @@ class SelectBands:
         self.epochs = epochs
         self.batch_size = batch_size
         self.scratch = scratch
+        self.dataset = dataset
 
-        # Pre-process data
-        self.dataset = process_data(dataset, flag_average=average, transform=False)
+        # Pre-process data for IBRA
+        IBRAdataset = process_data(dataset, flag_average=average, transform=False, normalization=True)
 
         # Initialize IBRA
-        self.interB = InterBandRedundancy(dataset=dataset, printProcess=False)
+        self.interB = InterBandRedundancy(dataset=IBRAdataset, printProcess=False)
 
+        self.pca, self.pls = False, False
         if method == 'PCA':
             self.pca = True  # IBRA forms a set of candidate bands and then we reduce the number of bands using PCA
         elif method == 'PLS':
@@ -46,8 +48,11 @@ class SelectBands:
     def run_selection(self, init_vf=12, final_vf=5):
         """Execute band selection algorithm
         :param init_vf: Initial Variance Inflation Factor threshold (used for IBRA)
-        :param final_vf: Final Variance Inflation Factor threshold (used for IBRA)"""
+        :param final_vf: Final Variance Inflation Factor threshold (used for IBRA)
+        """
         data = self.dataset.name
+        f1_best = 0
+        IBRA_best, stats_best, VIF_best, GSS_best, pca_or_pls_transform_best = None, None, None, None, None
 
         for t in reversed(range(final_vf, init_vf + 1)):
             print("Testing VIF threshold: " + str(t))
@@ -55,7 +60,8 @@ class SelectBands:
             # Check if the analysis have been made before
             filepreselected = data + "//results//" + self.method + "//preselection_" + data + "_VIF" + str(t)
             filedistances = data + "//results//" + self.method + "//distances_" + data + "_VIF" + str(t)
-            fileselected = data + "//results//" + self.method + "//" + str(self.nbands) + " bands//selection_" + data + '100' + \
+            fileselected = data + "//results//" + self.method + "//" + str(
+                self.nbands) + " bands//selection_" + data + '100' + \
                            self.classifier + str(self.nbands) + "bands_VIF" + str(t) + ".txt"
 
             # If the folder does not exist, create it
@@ -70,7 +76,7 @@ class SelectBands:
 
             if os.path.exists(filepreselected) or (not self.scratch):
                 with open(filepreselected, 'rb') as f:
-                    indexes = pickle.load(f)
+                    IBRAindexes = pickle.load(f)
             else:
                 self.interB.setT(t)
                 # Get the distribution of distances
@@ -78,30 +84,34 @@ class SelectBands:
                 # Calculate local minima
                 dist.insert(0, 100)  # Add high values at the beginning and the end so that initial
                 dist.append(100)  # and final bands can be considered as local minima
-                indexes, _ = find_peaks(np.max(dist) - dist, height=0)
+                IBRAindexes, _ = find_peaks(np.max(dist) - dist, height=0)
                 dist = np.array(dist[1:-1])  # Remove the dummy points previously added
-                indexes = indexes - 1
+                IBRAindexes = IBRAindexes - 1
                 # Remove points with a distance greater or equal than 5 (not suitable centers)
-                indexes = [p for p in indexes if dist[p] < 5]
+                IBRAindexes = [p for p in IBRAindexes if dist[p] < 5]
                 # Save pre-selected bands for VIF value of t
                 with open(filepreselected, 'wb') as fi:
-                    pickle.dump(indexes, fi)
+                    pickle.dump(IBRAindexes, fi)
                 # Save distribution of distances for VIF value of t
                 with open(filedistances, 'wb') as fi:
                     pickle.dump(dist, fi)
 
             # Get the k-selected bands based on IE
-            new_dataset = process_data(self.dataset, flag_average=False, transform=self.transform)
+            new_dataset = process_data(self.dataset, selection=IBRAindexes, flag_average=False,
+                                       transform=self.transform)
             net = TrainSelection(method=self.method, classifier=self.classifier, batch_size=self.batch_size,
-                                 epochs=self.epochs, plot=False, selection=indexes, th=str(t), dataset=new_dataset,
+                                 epochs=self.epochs, plot=False, th=str(t), dataset=new_dataset,
                                  pca=self.pca, pls=self.pls, transform=self.transform)
+            GSSindexes = None
             if self.method == 'GSS':
-                index, entr = net.selection(select=self.nbands)
+                GSSindexes, entr = net.selection(select=self.nbands)
                 # Save selected bands as txt file
                 with open(fileselected, 'w') as x_file:
-                    x_file.write(str(index))
+                    x_file.write(str(GSSindexes))
                 # Save scores of each of the bands
-                with open(data + "//results//" + self.method + "//bandScores_" + data + '100' + self.classifier + "_VIF" + str(t), 'wb') as fi:
+                with open(
+                        data + "//results//" + self.method + "//bandScores_" + data + '100' + self.classifier + "_VIF" + str(
+                                t), 'wb') as fi:
                     pickle.dump(entr, fi)
             else:
                 if self.pca:
@@ -110,16 +120,43 @@ class SelectBands:
                     print("Applying PLS over the IBRA-preselected bands and training a classifier")
 
             # Train selected bands if the selected set of bands was not trained before
-            if not os.path.exists(
-                    data + "//results//" + self.method + "//" + str(self.nbands) + " bands//classification_report5x2_100" +
-                    self.classifier + self.method + str(self.nbands) + data + str(t) + ".txt"):
-                np.random.seed(7)  # Re-Initialize seed to get reproducible results
-                torch.manual_seed(7)
-                torch.cuda.manual_seed(7)
-                torch.backends.cudnn.deterministic = True
-                torch.backends.cudnn.benchmark = False
-                net = TrainSelection(method=self.method, classifier=self.classifier, batch_size=self.batch_size,
-                                     epochs=self.epochs, plot=False, selection=indexes, th=str(t), dataset=new_dataset,
-                                     pca=self.pca, pls=self.pls, transform=self.transform)
-                net.train()
-                # net.validate()  # Store the evaluation metrics
+            print("\n Training a model using 5x2 CV using the final selected or reduced bands...")
+            np.random.seed(7)  # Re-Initialize seed to get reproducible results
+            torch.manual_seed(7)
+            torch.cuda.manual_seed(7)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            net = TrainSelection(method=self.method, classifier=self.classifier, batch_size=self.batch_size,
+                                 epochs=self.epochs, plot=False, th=str(t), dataset=new_dataset,
+                                 pca=self.pca, pls=self.pls, transform=self.transform)
+            stats, pca_or_pls_transform = net.train()
+
+            if stats.f1 > f1_best:
+                f1_best = stats.f1
+                IBRA_best = IBRAindexes
+                stats_best, VIF_best, GSS_best, pca_or_pls_transform_best = stats, t, GSSindexes, pca_or_pls_transform
+
+        print("The best F1 performance was achieved using a VIF = {}".format(VIF_best))
+
+        if self.method == 'GSS':
+            print("The best band combination obtained using GSS was {}".format(GSS_best))
+            return VIF_best, IBRA_best, GSS_best, stats_best
+        else:
+            new_dataset = process_data(self.dataset, selection=IBRA_best, flag_average=False, transform=self.transform)
+            if self.pca:
+                return VIF_best, IBRA_best, applyPCA(new_dataset, numComponents=self.nbands,
+                                                     transform=pca_or_pls_transform_best), stats_best
+            else:
+                return VIF_best, IBRA_best, applyPLS(new_dataset, numComponents=self.nbands,
+                                                     transform=pca_or_pls_transform_best), stats_best
+
+
+if __name__ == '__main__':
+    from HSIBandSelection.readSAT import loadata, createImageCubes
+
+    X, Y = loadata(name='IP')
+    X, Y = createImageCubes(X, Y, window=5)
+    datast = Dataset(train_x=X, train_y=Y, name='IP')
+
+    selector = SelectBands(dataset=datast, method='GSS', nbands=5)
+    selector.run_selection()

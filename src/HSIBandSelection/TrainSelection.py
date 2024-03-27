@@ -64,10 +64,9 @@ Main Class Definition
 class TrainSelection:
     """Class used for training a dataset using the Hyper3DNetLite network"""
 
-    def __init__(self, nbands=6, method='GSS', classifier='CNN', transform=False, batch_size=128,
-                 epochs=150, dataset: Dataset = None, size=100, plot=False, selection=None, th='', pca=False, pls=False):
+    def __init__(self, method='GSS', classifier='CNN', transform=False, batch_size=128,
+                 epochs=150, dataset: Dataset = None, size=100, plot=False, th='', pca=False, pls=False):
         """
-        @param nbands: Desired number of bands.
         @param method: Band selection method. Options: 'GSS', 'OCF', 'GA', 'PLS', 'FNGBS', 'FullSpec', 'Compressed.
         @param classifier: Type of model used to train the classifiers. Options: 'CNN', 'SVM', 'RF'.
         @param transform: Flag used to simulate Gaussian bandwidths.
@@ -75,17 +74,12 @@ class TrainSelection:
         @param epochs: Number of epochs used for training.
         @param dataset: A utils.Dataset object
         @param size: Percentage of the dataset used for the experiments.
-        @param selection: Load only the selected bands from the dataset
         @param th: Optional index to add in the end of the generated files
         @param pca: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
         bands using PCA.
         @param pls: If True, we use the IBRA method to form a set of candidate bands and then we reduce the number of \
         bands using LDA.
         """
-        if selection is not None:
-            self.nbands = len(selection)
-        else:
-            self.nbands = nbands
         self.method = method
         self.transform = transform
         self.batch_size = batch_size
@@ -99,6 +93,7 @@ class TrainSelection:
 
         # Read the data using the specified parameters
         self.trainx, self.train_y, self.indexes, self.data = dataset.train_x, dataset.train_y, dataset.ind, dataset.name
+        self.nbands = self.trainx.shape[-1]
         # Reshape as a 4-D TENSOR
         self.trainx = np.reshape(self.trainx, (self.trainx.shape[0], self.trainx.shape[1], self.trainx.shape[2],
                                                self.trainx.shape[3], 1))
@@ -205,12 +200,13 @@ class TrainSelection:
             print("******************************")
             # Normalize using the training set
             trainx, means, stds = normalize(self.trainx[train])
+            pca_or_pls_transform = None
             if self.pca:
                 print("Executing IBRA + PCA")
-                trainx = getPCA(trainx, numComponents=self.nbands, dataset=self.data)
+                trainx, pca_or_pls_transform = getPCA(trainx, numComponents=self.nbands, dataset=self.data)
             elif self.pls:
                 print("Executing IBRA + Pls")
-                trainx = getPLS(trainx, self.train_y[train], numComponents=self.nbands, dataset=self.data)
+                trainx, pca_or_pls_transform = getPLS(trainx, self.train_y[train], numComponents=self.nbands, dataset=self.data)
             valx = self.trainx[test]
 
             # Define path where the model will be saved
@@ -254,6 +250,11 @@ class TrainSelection:
             x_file.write("Recall accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvrec)), float(np.std(cvrec))))
             x_file.write('\n')
             x_file.write("F1 accuracy%.3f%% (+/- %.3f%%)" % (float(np.mean(cvf1)), float(np.std(cvf1))))
+
+        return Stats(mean_accuracy=float(np.mean(cvoa)), std_accuracy=float(np.std(cvoa)),
+                     mean_precision=float(np.mean(cvpre)), std_precision=float(np.std(cvpre)),
+                     mean_recall=float(np.mean(cvrec)), std_recall=float(np.std(cvrec)),
+                     mean_f1=float(np.mean(cvf1)), std_f1=float(np.std(cvf1))), pca_or_pls_transform
 
     def train(self):
         self.train_validate(training=True)
