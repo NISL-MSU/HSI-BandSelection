@@ -4,8 +4,8 @@ import numpy as np
 import torch.optim as optim
 from torchsummary import summary
 from ..Classification.networks import *
-from src.HSIBandSelection import utils
 from ..Classification.ModelStrategy import ModelStrategy
+from ..utils import get_class_distribution, applynormalize, applyPCA, applyPLS
 
 np.random.seed(7)  # Initialize seed to get reproducible results
 random.seed(7)
@@ -41,7 +41,7 @@ class CNNStrategy(ModelStrategy):
         if classes == 2:
             criterion = nn.BCEWithLogitsLoss()
         else:
-            class_count = [i for i in utils.get_class_distribution(train_y).values()]
+            class_count = [i for i in get_class_distribution(train_y).values()]
             class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
             criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
 
@@ -122,11 +122,11 @@ class CNNStrategy(ModelStrategy):
                       (epoch + 1, loss.item(), oa.item(), val_acc))
 
     def evaluateFoldStrategy(self, valx, train_y, test, means, stds, batch_size, classes, device):
-        valxn = utils.applynormalize(valx, means, stds)
+        valxn = applynormalize(valx, means, stds)
         if self.pca:
-            valxn = utils.applyPCA(valxn, numComponents=self.nbands, dataset=self.data)
+            valxn = applyPCA(valxn, numComponents=self.nbands, dataset=self.data)
         elif self.pls:
-            valxn = utils.applyPLS(valxn, numComponents=self.nbands, dataset=self.data)
+            valxn = applyPLS(valxn, numComponents=self.nbands, dataset=self.data)
 
         ypred = []
         with torch.no_grad():
