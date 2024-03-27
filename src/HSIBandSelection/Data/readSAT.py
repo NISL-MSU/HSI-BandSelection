@@ -1,10 +1,16 @@
-from importlib.resources import files
 import os
 import numpy as np
 import scipy.io as sio
 from operator import truediv
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
+try:
+    from importlib_resources import files
+except ModuleNotFoundError:
+    try:
+        from importlib.resources import files
+    except ModuleNotFoundError:
+        pass
 
 
 def loadata(name, compressed=False):
@@ -37,7 +43,7 @@ def loadata(name, compressed=False):
             dat = sio.loadmat(os.path.join(data_path, 'Botswana' + comp + '.mat'))['Botswana']
             label = sio.loadmat(os.path.join(data_path, 'Botswana_gt.mat'))['Botswana_gt']
             return dat, label
-    except:
+    except FileNotFoundError:
         if name == 'IP':
             if compressed:
                 dat = sio.loadmat(files('HSIBandSelection.Data').joinpath('Indian_pines_corrected_compressed.mat'))['indian_pines']
