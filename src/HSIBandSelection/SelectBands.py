@@ -3,9 +3,9 @@ import torch
 import pickle
 import numpy as np
 from scipy.signal import find_peaks
-from src.HSIBandSelection.TrainSelection import TrainSelection
-from src.HSIBandSelection.InterBandRedundancy import InterBandRedundancy
-from src.HSIBandSelection.utils import Dataset, process_data, applyPCA, applyPLS
+from .TrainSelection import TrainSelection
+from .InterBandRedundancy import InterBandRedundancy
+from .utils import Dataset, process_data, applyPCA, applyPLS
 
 
 class SelectBands:
