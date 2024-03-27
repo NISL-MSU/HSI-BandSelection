@@ -13,7 +13,7 @@ def loadata(name, compressed=False):
     if compressed:
         comp = '_compressed'
 
-    with importlib.resources.path('HSIBandSelection', 'data') as data_path:
+    with importlib.resources.path('HSIBandSelection', 'Data') as data_path:
         if name == 'IP':
             if compressed:
                 dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected_compressed.mat'))['indian_pines']
