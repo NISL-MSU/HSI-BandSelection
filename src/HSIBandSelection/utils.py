@@ -98,7 +98,7 @@ class Dataset:
     """Class used to store a dataset"""
     train_x: np.array
     train_y: np.array
-    ind: list = field(init=True)
+    ind: list = field(default=None)
     name: str = 'temp'
 
     def __post_init__(self):
