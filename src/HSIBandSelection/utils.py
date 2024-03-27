@@ -1,19 +1,20 @@
+import cv2
 import h5py
-from scipy import integrate
+import torch
+import pickle
+from scipy import stats
 from scipy import ndimage
+from .Data.readSAT import *
+from scipy import integrate
 from scipy.stats import norm
 import statsmodels.api as sm
-import pickle
-import cv2
-from Data.readSAT import *
-from scipy import stats
-import torch
 from sklearn.metrics import r2_score
+from dataclasses import dataclass, field
 from numpy.random import binomial as binom
 from sklearn.cross_decomposition import PLSRegression
 
-# import matplotlib.pyplot as plt
-np.random.seed(seed=7)  # Initialize seed to get reproducible results
+
+np.random.seed(7)  # Initialize seed to get reproducible results
 torch.manual_seed(7)
 torch.cuda.manual_seed(7)
 torch.backends.cudnn.deterministic = True
@@ -34,7 +35,7 @@ def generic_gaussians(indices, bandwidth, L):
     # half maximum of a Gaussian), calculate the standard deviation
     # FWHM = 2*sqrt(2ln(2))*stdev => stdev = FWHM/(2*sqrt(2ln(2)))
     stdev = np.divide(index_bandwidth, np.multiply(2, np.sqrt(np.multiply(np.log(2), 2))))
-    
+
     for ind in indices:
         curve = np.linspace(0, L, L)
         pdf = norm.pdf(curve, ind, stdev)
@@ -92,8 +93,60 @@ def add_rotation_flip(x, y):
     return x, y
 
 
-def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', selection=None,
-              transform=False, data='', vifv=0, pca=False, pls=False, normalization=False):
+@dataclass
+class Dataset:
+    """Class used to store a dataset"""
+    train_x: np.array
+    train_y: np.array
+    ind: list = field(init=True)
+    name: str = 'temp'
+
+    def __post_init__(self):
+        if not self.ind:
+            self.ind = [i for i in range(self.train_x.shape[-1])]
+
+
+def process_data(dataset: Dataset, flag_average=True, selection=None, transform=False, normalization=False):
+    """Pre-process data before running band selection algorithms"""
+    train_x, train_y, indexes = dataset.train_x, dataset.train_y, dataset.ind
+    # Average consecutive bands
+    if flag_average:
+        img2 = np.zeros((train_x.shape[0], train_x.shape[1], train_x.shape[2], int(train_x.shape[3] / 2)))
+        for n in range(0, train_x.shape[0]):
+            for i in range(0, train_x.shape[3], 2):
+                img2[n, :, :, int(i / 2)] = (train_x[n, :, :, i] + train_x[n, :, :, i + 1]) / 2.
+        train_x = img2
+
+    # Select indices
+    if selection is not None:
+        indexes = selection
+    indexes.sort()
+    print("Selecting bands: ", indexes)
+
+    if transform:
+        print("Transforming data...")
+        nu = train_x.shape[0]
+        w = train_x.shape[1]
+        sp = train_x.shape[3]
+        train_x = np.array(transform_data(produce_spectras=train_x.reshape((nu * w * w, sp)), bandwidth=5,
+                                          indices=indexes, L=int(train_x.shape[3])))
+        train_x = train_x.reshape((nu, w, w, len(indexes)))
+    else:
+        # Select bands from original image
+        temp = np.zeros((train_x.shape[0], train_x.shape[1], train_x.shape[2], len(indexes)))
+        for nb in range(0, len(indexes)):
+            temp[:, :, :, nb] = train_x[:, :, :, indexes[nb]]
+        train_x = temp.astype(np.float32)
+
+    # Apply normalization to the entire dataset (used for the IBRA method)
+    if normalization:
+        train_x, _, _ = normalize(train_x)  # Later, during training, we will normalize each training set
+
+    return Dataset(train_x, train_y, indexes, dataset.name)
+
+
+def load_predefined_data(flag_average=True, median=False, nbands=np.infty, method='GSS', selection=None,
+                         transform=False, data='', vifv=0, pca=False, pls=False, normalization=False, printInf=False):
     """Load one of the satellite HSI datasets"""
     compressed = False  # Flag used to load the compressed datasets
     if method == 'Compressed':
@@ -110,8 +163,10 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
             hdf5_file = h5py.File('avocado_dataset_w64.hdf5', "r")
         train_x = np.array(hdf5_file["train_img"][...]).astype(np.float32)
         train_y = np.array(hdf5_file["train_labels"][...])
-    print("Dataset shape: " + str(train_x.shape))
-    print("Loading and transforming the data into the correct format...")
+
+    if printInf:
+        print("Dataset shape: " + str(train_x.shape))
+        print("Loading and transforming the data into the correct format...")
     # Average consecutive bands
     if flag_average:
         if data == 'Avocado':
@@ -143,7 +198,7 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
     indexes = []
     if nbands < int(train_x.shape[3]) or selection is not None:
         if data == "Kochia":  # Selects indexes for the Kochia dataset
-            if method == 'SSA':
+            if method == 'GSS':
                 if nbands == 6 and not pca and not pls:
                     indexes = [1, 18, 43, 68, 81, 143]
                 elif nbands == 8 and not pca and not pls:
@@ -203,7 +258,7 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
                     indexes = [2, 4, 16, 30, 42, 48, 55, 71, 75, 76]
 
         elif data == "Avocado":  # Selects indexes for the Avocado dataset
-            if method == 'SSA':
+            if method == 'GSS':
                 if nbands == 5:
                     indexes = [20, 41, 74, 102, 123]
                 elif nbands == 10 and vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
@@ -236,7 +291,7 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
                     indexes = [0, 74, 95, 135, 140]
 
         elif data == "IP":  # Selects indexes for the Avocado dataset
-            if method == 'SSA':
+            if method == 'GSS':
                 if nbands == 5 and not pca and not pls:
                     indexes = [11, 25, 34, 39, 67]
                 elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
@@ -278,7 +333,7 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
                     indexes = [28, 52, 91, 104, 121]
 
         elif data == "SA":  # Selects indexes for the Avocado dataset
-            if method == 'SSA':
+            if method == 'GSS':
                 if nbands == 5 and not pca and not pls:
                     indexes = [37, 60, 82, 92, 175]
                 elif vifv == 12:  # Selected by the Inter-band redundancy method. VIF: 12.
@@ -349,7 +404,7 @@ def load_data(flag_average=True, median=False, nbands=np.infty, method='SSA', se
     if normalization:
         train_x, _, _ = normalize(train_x)
 
-    return train_x, train_y, indexes
+    return Dataset(train_x, train_y, indexes, data)
 
 
 def normalize(trainx):
@@ -363,13 +418,13 @@ def normalize(trainx):
     stds = np.zeros((dim, 1))
     for n in range(dim):
         if trainx.ndim == 5:  # Apply normalization to the data that is already in Pytorch format
-            means[n, ] = np.mean(trainxn[:, :, n, :, :])
-            stds[n, ] = np.std(trainxn[:, :, n, :, :])
-            trainxn[:, :, n, :, :] = (trainxn[:, :, n, :, :] - means[n, ]) / (stds[n, ])
+            means[n,] = np.mean(trainxn[:, :, n, :, :])
+            stds[n,] = np.std(trainxn[:, :, n, :, :])
+            trainxn[:, :, n, :, :] = (trainxn[:, :, n, :, :] - means[n,]) / (stds[n,])
         elif trainx.ndim == 4:
-            means[n, ] = np.mean(trainxn[:, :, :, n])
-            stds[n, ] = np.std(trainxn[:, :, :, n])
-            trainxn[:, :, :, n] = (trainxn[:, :, :, n] - means[n, ]) / (stds[n, ])
+            means[n,] = np.mean(trainxn[:, :, :, n])
+            stds[n,] = np.std(trainxn[:, :, :, n])
+            trainxn[:, :, :, n] = (trainxn[:, :, :, n] - means[n,]) / (stds[n,])
     return trainxn, means, stds
 
 
@@ -377,7 +432,7 @@ def applynormalize(testx, means, stds):
     """Apply normalization based on previous calculated means and stds"""
     testxn = testx.copy()
     for n in range(testx.shape[2]):
-        testxn[:, :, n, :, :] = (testxn[:, :, n, :, :] - means[n, ]) / (stds[n, ])
+        testxn[:, :, n, :, :] = (testxn[:, :, n, :, :] - means[n,]) / (stds[n,])
     return testxn
 
 
@@ -441,59 +496,16 @@ def entropy(labels, base=2):
     return -(norm_counts * np.log(norm_counts) / np.log(base)).sum()
 
 
-def get_class_distributionKochia(train_y):
+def get_class_distribution(train_y):
     """Get number of samples per class"""
-    count_dict = {"0": 0, "1": 0, "2": 0}
+    count_dict = {}
 
+    # Iterate through the train_y and count occurrences of each class
     for i in train_y:
-        if i == 0:
-            count_dict['0'] += 1
-        elif i == 1:
-            count_dict['1'] += 1
-        elif i == 2:
-            count_dict['2'] += 1
-
-    return count_dict
-
-
-def get_class_distributionIP(train_y):
-    """Get number of samples per class"""
-    count_dict = {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0, "11": 0,
-                  "12": 0, "13": 0, "14": 0, "15": 0}
-
-    for i in train_y:
-        if i == 0:
-            count_dict['0'] += 1
-        elif i == 1:
-            count_dict['1'] += 1
-        elif i == 2:
-            count_dict['2'] += 1
-        if i == 3:
-            count_dict['3'] += 1
-        elif i == 4:
-            count_dict['4'] += 1
-        elif i == 5:
-            count_dict['5'] += 1
-        if i == 6:
-            count_dict['6'] += 1
-        elif i == 7:
-            count_dict['7'] += 1
-        elif i == 8:
-            count_dict['8'] += 1
-        if i == 9:
-            count_dict['9'] += 1
-        elif i == 10:
-            count_dict['10'] += 1
-        elif i == 11:
-            count_dict['11'] += 1
-        if i == 12:
-            count_dict['12'] += 1
-        elif i == 13:
-            count_dict['13'] += 1
-        elif i == 14:
-            count_dict['14'] += 1
-        elif i == 15:
-            count_dict['15'] += 1
+        if i not in count_dict:
+            count_dict[i] = 1
+        else:
+            count_dict[i] += 1
 
     return count_dict
 

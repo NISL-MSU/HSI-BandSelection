@@ -19,8 +19,6 @@ class Hyper3DNetLite(nn.Module, ABC):
         # Define layers
         self.classes = classes
         self.img_shape = img_shape
-        print(img_shape)
-
         self.conv_layer1 = nn.Sequential(nn.Conv3d(in_channels=img_shape[0], out_channels=16,
                                                    kernel_size=3,
                                                    padding=1),

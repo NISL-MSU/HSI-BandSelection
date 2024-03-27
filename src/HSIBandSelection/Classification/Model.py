@@ -1,7 +1,7 @@
-from ClassificationStrategy.CNNStrategy import CNNStrategy
-from ClassificationStrategy.SVMStrategy import SVMStrategy
-from ClassificationStrategy.RFStrategy import RFStrategy
-from ClassificationStrategy.ANNStrategy import ANNStrategy
+from .CNNStrategy import CNNStrategy
+from .SVMStrategy import SVMStrategy
+from .RFStrategy import RFStrategy
+from .ANNStrategy import ANNStrategy
 import sys
 
 
@@ -10,7 +10,7 @@ class Model:
     def __init__(self, classifier, data, device, nbands, windowSize, train_y, classes, pca, pls):
         """Create a ML object used to train the HSI datasets.
         @param classifier: Type of classifier. Options: CNN, ANN, SVM, or RF.
-        @param data: Type of data. Options: Kochia, Avocado, IP.
+        @param data: Name of the dataset. Options: Kochia, Avocado, IP.
         @param device: Type of device used for training (Used for the CNN).
         @param nbands: Number of selected spectral ban.
         @param windowSize: Window size (Used for the CNN).
