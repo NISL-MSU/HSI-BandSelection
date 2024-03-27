@@ -1,4 +1,4 @@
-import importlib.resources
+from importlib.resources import files
 import os
 import numpy as np
 import scipy.io as sio
@@ -13,10 +13,10 @@ def loadata(name, compressed=False):
     if compressed:
         comp = '_compressed'
 
-    with importlib.resources.path('HSIBandSelection', 'Data') as data_path:
+    try:
         if name == 'IP':
             if compressed:
-                dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected_compressed.mat'))['indian_pines']
+                dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_compressed.mat'))['indian_pines']
             else:
                 dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected.mat'))['indian_pines_corrected']
             label = sio.loadmat(os.path.join(data_path, 'Indian_pines_gt.mat'))['indian_pines_gt']
@@ -37,6 +37,31 @@ def loadata(name, compressed=False):
             dat = sio.loadmat(os.path.join(data_path, 'Botswana' + comp + '.mat'))['Botswana']
             label = sio.loadmat(os.path.join(data_path, 'Botswana_gt.mat'))['Botswana_gt']
             return dat, label
+    except:
+        if name == 'IP':
+            if compressed:
+                dat = sio.loadmat(files('HSIBandSelection.Data').joinpath('Indian_pines_corrected_compressed.mat'))['indian_pines']
+            else:
+                dat = sio.loadmat(files('HSIBandSelection.Data').joinpath('Indian_pines_corrected.mat'))['indian_pines_corrected']
+            label = sio.loadmat(os.path.join(data_path, 'Indian_pines_gt.mat'))['indian_pines_gt']
+            return dat, label
+        elif name == 'SA':
+            dat = sio.loadmat(os.path.join(data_path, 'Salinas_corrected' + comp + '.mat'))['salinas_corrected']
+            label = sio.loadmat(os.path.join(data_path, 'Salinas_gt.mat'))['salinas_gt']
+            return dat, label
+        elif name == 'PU':
+            dat = sio.loadmat(os.path.join(data_path, 'PaviaU' + comp + '.mat'))['paviaU']
+            label = sio.loadmat(os.path.join(data_path, 'PaviaU_gt.mat'))['paviaU_gt']
+            return dat, label
+        elif name == 'KSC':
+            dat = sio.loadmat(os.path.join(data_path, 'KSC' + comp + '.mat'))['KSC']
+            label = sio.loadmat(os.path.join(data_path, 'KSC_gt.mat'))['KSC_gt']
+            return dat, label
+        elif name == 'BSW':
+            dat = sio.loadmat(os.path.join(data_path, 'Botswana' + comp + '.mat'))['Botswana']
+            label = sio.loadmat(os.path.join(data_path, 'Botswana_gt.mat'))['Botswana_gt']
+            return dat, label
+
 
 
 def padWithZeros(Xc, margin=2):
