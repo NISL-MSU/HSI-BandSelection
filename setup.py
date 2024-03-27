@@ -14,9 +14,10 @@ setuptools.setup(
     url='https://github.com/NISL-MSU/HSI-BandSelection',
     project_urls={"Bug Tracker": "https://github.com/NISL-MSU/HSI-BandSelection/issues"},
     license='MIT',
+    include_package_data=True,
     package_dir={"": "src"},
     packages=setuptools.find_packages('src', exclude=['test']),
     install_requires=['matplotlib', 'numpy', 'opencv-python', 'statsmodels', 'tqdm', 'timeout_decorator',
                       'h5py', 'pyodbc', 'regex', 'torchsummary', 'python-dotenv', 'omegaconf', 'pandas'],
-    package_data={'HSIBandSelection': ['Data/*.mat']}
+    # package_data={'HSIBandSelection': ['Data/*.mat']}
 )
