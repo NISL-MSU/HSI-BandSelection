@@ -5,7 +5,7 @@ import numpy as np
 from scipy.signal import find_peaks
 from .TrainSelection import TrainSelection
 from .InterBandRedundancy import InterBandRedundancy
-from .utils import Dataset, process_data, applyPCA, applyPLS
+from .utils import Dataset, process_data, getPCA, getPLS
 
 
 class SelectBands:
@@ -105,14 +105,6 @@ class SelectBands:
             GSSindexes = None
             if self.method == 'GSS':
                 GSSindexes, entr = net.selection(select=self.nbands)
-                # Save selected bands as txt file
-                with open(fileselected, 'w') as x_file:
-                    x_file.write(str(GSSindexes))
-                # Save scores of each of the bands
-                with open(
-                        data + "//results//" + self.method + "//bandScores_" + data + '100' + self.classifier + "_VIF" + str(
-                                t), 'wb') as fi:
-                    pickle.dump(entr, fi)
             else:
                 if self.pca:
                     print("Applying PCA over the IBRA-preselected bands and training a classifier")
@@ -144,11 +136,9 @@ class SelectBands:
         else:
             new_dataset = process_data(self.dataset, selection=IBRA_best, flag_average=False, transform=self.transform)
             if self.pca:
-                return VIF_best, IBRA_best, applyPCA(new_dataset, numComponents=self.nbands,
-                                                     transform=pca_or_pls_transform_best), stats_best
+                return VIF_best, IBRA_best, getPCA(new_dataset.train_x, numComponents=self.nbands), stats_best
             else:
-                return VIF_best, IBRA_best, applyPLS(new_dataset, numComponents=self.nbands,
-                                                     transform=pca_or_pls_transform_best), stats_best
+                return VIF_best, IBRA_best, getPLS(new_dataset.train_x, numComponents=self.nbands), stats_best
 
 
 if __name__ == '__main__':

@@ -523,7 +523,7 @@ def get_class_distribution(train_y):
     return count_dict
 
 
-def getPCA(Xc, numComponents=5, dataset='Kochia'):
+def getPCA(Xc, numComponents=5, dataset=None):
     """Reduce the number of components or channels using PCA"""
     newX = Xc.transpose((0, 3, 4, 2, 1))
     newX = np.reshape(newX, (-1, newX.shape[3]))
@@ -532,9 +532,10 @@ def getPCA(Xc, numComponents=5, dataset='Kochia'):
     newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
     newX = newX.transpose((0, 4, 3, 1, 2))
     # Save pca transformation
-    file = dataset + "//results//PCA_transformations//pca_" + str(numComponents)
-    with open(file, 'wb') as f:
-        pickle.dump(pcaC, f)
+    if dataset is not None:
+        file = dataset + "//results//PCA_transformations//pca_" + str(numComponents)
+        with open(file, 'wb') as f:
+            pickle.dump(pcaC, f)
     return newX, pcaC
 
 
@@ -559,7 +560,7 @@ def applyPCA(Xc, numComponents=5, transform=None, dataset='Kochia'):
     return newX
 
 
-def getPLS(Xc, yc, numComponents=5, dataset='Kochia'):
+def getPLS(Xc, yc, numComponents=5, dataset=None):
     """Reduce the number of components or channels using PLS"""
     newX = Xc.transpose((0, 3, 4, 2, 1))
     newX = np.reshape(newX, (-1, newX.shape[3]))
@@ -576,9 +577,10 @@ def getPLS(Xc, yc, numComponents=5, dataset='Kochia'):
     newX = np.reshape(newX, (Xc.shape[0], Xc.shape[3], Xc.shape[3], numComponents, Xc.shape[1]))
     newX = newX.transpose((0, 4, 3, 1, 2))
     # Save pls transformation
-    file = dataset + "//results//PLS_transformations//pls_" + str(numComponents)
-    with open(file, 'wb') as f:
-        pickle.dump(PLS_transform, f)
+    if dataset is not None:
+        file = dataset + "//results//PLS_transformations//pls_" + str(numComponents)
+        with open(file, 'wb') as f:
+            pickle.dump(PLS_transform, f)
     return newX, PLS_transform
 
 

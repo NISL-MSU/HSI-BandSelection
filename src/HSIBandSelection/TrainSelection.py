@@ -200,13 +200,12 @@ class TrainSelection:
             print("******************************")
             # Normalize using the training set
             trainx, means, stds = normalize(self.trainx[train])
-            pca_or_pls_transform = None
             if self.pca:
                 print("Executing IBRA + PCA")
-                trainx, pca_or_pls_transform = getPCA(trainx, numComponents=self.nbands, dataset=self.data)
+                trainx = getPCA(trainx, numComponents=self.nbands, dataset=self.data)
             elif self.pls:
                 print("Executing IBRA + Pls")
-                trainx, pca_or_pls_transform = getPLS(trainx, self.train_y[train], numComponents=self.nbands, dataset=self.data)
+                trainx = getPLS(trainx, self.train_y[train], numComponents=self.nbands, dataset=self.data)
             valx = self.trainx[test]
 
             # Define path where the model will be saved
@@ -254,7 +253,7 @@ class TrainSelection:
         return Stats(mean_accuracy=float(np.mean(cvoa)), std_accuracy=float(np.std(cvoa)),
                      mean_precision=float(np.mean(cvpre)), std_precision=float(np.std(cvpre)),
                      mean_recall=float(np.mean(cvrec)), std_recall=float(np.std(cvrec)),
-                     mean_f1=float(np.mean(cvf1)), std_f1=float(np.std(cvf1))), pca_or_pls_transform
+                     mean_f1=float(np.mean(cvf1)), std_f1=float(np.std(cvf1)))
 
     def train(self):
         self.train_validate(training=True)
