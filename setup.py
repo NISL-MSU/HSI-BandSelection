@@ -19,6 +19,6 @@ setuptools.setup(
     package_dir={"": "src"},
     include_package_data=True,
     install_requires=['matplotlib', 'numpy', 'opencv-python', 'statsmodels', 'tqdm', 'h5py', 'pyodbc', 'regex',
-                      'torchsummary', 'python-dotenv', 'omegaconf', 'pandas', 'importlib-resources'],
+                      'torchsummary', 'python-dotenv', 'omegaconf', 'pandas'],
     # package_data={'HSIBandSelection.Data': ['*.mat']}
 )
