@@ -7,16 +7,16 @@ from sklearn.model_selection import train_test_split
 
 
 def loadata(name, compressed=False):
-    data_path = 'HSIBandSelection/Data'
+    data_path = os.getcwd()
     comp = ''
     if compressed:
         comp = '_compressed'
 
     if name == 'IP':
         if compressed:
-            dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected_compressed.mat'))['indian_pines']
+            dat = sio.loadmat(os.path.join(data_path, '\\Data\\Indian_pines_corrected_compressed.mat'))['indian_pines']
         else:
-            dat = sio.loadmat(os.path.join(data_path, 'Indian_pines_corrected.mat'))['indian_pines_corrected']
+            dat = sio.loadmat(os.path.join(data_path, '\\Data\\Indian_pines_corrected.mat'))['indian_pines_corrected']
         label = sio.loadmat(os.path.join(data_path, 'Indian_pines_gt.mat'))['indian_pines_gt']
         return dat, label
     elif name == 'SA':

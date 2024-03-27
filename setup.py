@@ -18,4 +18,5 @@ setuptools.setup(
     packages=setuptools.find_packages('src', exclude=['test']),
     install_requires=['matplotlib', 'numpy', 'opencv-python', 'statsmodels', 'tqdm', 'timeout_decorator',
                       'h5py', 'pyodbc', 'regex', 'torchsummary', 'python-dotenv', 'omegaconf', 'pandas'],
+    package_data={'HSIBandSelection': ['Data/*.mat']}
 )
