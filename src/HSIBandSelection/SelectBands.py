@@ -55,7 +55,9 @@ class SelectBands:
         IBRA_best, stats_best, VIF_best, GSS_best, pca_or_pls_transform_best = None, None, None, None, None
 
         for t in reversed(range(final_vf, init_vf + 1)):
+            print("*************************************")
             print("Testing VIF threshold: " + str(t))
+            print("*************************************")
 
             # Check if the analysis have been made before
             filepreselected = data + "//results//" + self.method + "//preselection_" + data + "_VIF" + str(t)

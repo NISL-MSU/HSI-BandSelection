@@ -44,7 +44,7 @@ class Model:
         self.strategy.defineModel(self.device, self.data, self.nbands,
                                                self.windowSize, self.classes, train_y, self.pca, self.pls)
 
-    def trainFold(self, trainx, train_y, train, batch_size, epochs, valx, test, means, stds, filepath, printProc=True):
+    def trainFold(self, trainx, train_y, train, batch_size, epochs, valx, test, means, stds, filepath, printProc=False):
         """Train the network given a train-validation split
         @param trainx: Training set.
         @param train_y: Target data of the entire dataset (training + validation sets).

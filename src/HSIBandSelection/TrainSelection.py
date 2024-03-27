@@ -386,7 +386,7 @@ class TrainSelection:
             vifV.append(round(1 / (1 - rsq), 2))
             # print("R Square value of {} band is {} keeping all other bands as features".format(s[n],
             #                                                                                    (round(rsq, 4))))
-            print("\t\t\tMulticolinearity anslysis. Variance Inflation Factor of band {} is {}".format(s[n], vifV[n]))
+            print("\t\t\tMulticolinearity analysis. Variance Inflation Factor of band {} is {}".format(s[n], vifV[n]))
 
         return vifV
 
