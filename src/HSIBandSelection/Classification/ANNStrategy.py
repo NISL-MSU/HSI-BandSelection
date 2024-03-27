@@ -2,8 +2,8 @@ from ..Classification.ModelStrategy import ModelStrategy
 import torch.optim as optim
 from ..Classification.networks import *
 import numpy as np
-from src.HSIBandSelection import utils
 import torch
+from ..utils import get_class_distribution, applynormalize, applyPCA, applyPLS
 
 
 class ANNObject:
@@ -28,12 +28,8 @@ class ANNStrategy(ModelStrategy):
         # Training parameters
         if classes == 2:
             criterion = nn.BCEWithLogitsLoss()
-        elif data == "Kochia":
-            class_count = [i for i in utils.get_class_distributionKochia(train_y).values()]
-            class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
-            criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
         else:
-            class_count = [i for i in utils.get_class_distributionIP(train_y).values()]
+            class_count = [i for i in get_class_distribution(train_y).values()]
             class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
             criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
 
@@ -120,7 +116,7 @@ class ANNStrategy(ModelStrategy):
 
     def evaluateFoldStrategy(self, valx, train_y, test, means, stds, batch_size, classes, device):
         # Normalize the validation set based on the previous statistics
-        valxn = utils.applynormalize(valx, means, stds)
+        valxn = applynormalize(valx, means, stds)
         # Permute and reshape the data
         X = valxn.copy()[:, 0, :, :, :]
         X = X.transpose((1, 0, 2, 3))

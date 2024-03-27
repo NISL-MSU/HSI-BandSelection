@@ -1,8 +1,8 @@
 from ..Classification.ModelStrategy import ModelStrategy
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
-from src.HSIBandSelection import utils
 import pickle
+from ..utils import applynormalize
 
 
 class RFStrategy(ModelStrategy):
@@ -31,7 +31,7 @@ class RFStrategy(ModelStrategy):
         Y = np.array(Y)
 
         # Shuffle
-        np.random.seed(seed=7)  # Initialize seed to get reproducible results
+        np.random.seed(7)  # Initialize seed to get reproducible results
         ind = [i for i in range(X.shape[0])]
         np.random.shuffle(ind)
         X = X[ind][0:10000, :]
@@ -46,7 +46,7 @@ class RFStrategy(ModelStrategy):
 
     def evaluateFoldStrategy(self, valx, train_y, test, means, stds, batch_size, classes, device):
         # Normalize the validation set based on the previous statistics
-        valxn = utils.applynormalize(valx, means, stds)
+        valxn = applynormalize(valx, means, stds)
         # Permute and reshape the data
         X = valxn[:, 0, :, :, :]
         X = X.transpose((1, 0, 2, 3))

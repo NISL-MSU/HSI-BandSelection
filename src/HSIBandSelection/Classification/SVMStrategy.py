@@ -1,7 +1,7 @@
 from ..Classification.ModelStrategy import ModelStrategy
 from sklearn import svm
 import numpy as np
-from src.HSIBandSelection import utils
+from ..utils import applynormalize
 import pickle
 
 
@@ -46,7 +46,7 @@ class SVMStrategy(ModelStrategy):
 
     def evaluateFoldStrategy(self, valx, train_y, test, means, stds, batch_size, classes, device):
         # Normalize the validation set based on the previous statistics
-        valxn = utils.applynormalize(valx, means, stds)
+        valxn = applynormalize(valx, means, stds)
         # Permute and reshape the data
         X = valxn[:, 0, :, :, :]
         X = X.transpose((1, 0, 2, 3))
