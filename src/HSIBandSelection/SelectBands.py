@@ -127,8 +127,8 @@ class SelectBands:
                                  pca=self.pca, pls=self.pls, transform=self.transform)
             stats = net.train()
 
-            if stats.f1 > f1_best:
-                f1_best = stats.f1
+            if stats.mean_f1 > f1_best:
+                f1_best = stats.mean_f1
                 IBRA_best = IBRAindexes
                 stats_best, VIF_best, GSS_best = stats, t, GSSindexes
 
