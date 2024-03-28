@@ -126,7 +126,7 @@ class SelectBands:
                                  epochs=self.epochs, plot=False, th=str(t), dataset=new_dataset,
                                  pca=self.pca, pls=self.pls, transform=self.transform)
             stats = net.train()
-            print("Mean F1 score: " + str(stats.mean_f1))
+            print("Mean F1 score: " + str(stats.mean_f1) + "\n")
 
             if stats.mean_f1 > f1_best:
                 f1_best = stats.mean_f1
