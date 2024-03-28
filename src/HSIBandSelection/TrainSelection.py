@@ -187,24 +187,22 @@ class TrainSelection:
                 # Gets the list of training and test images using kfold.split
                 train = np.array(first)
                 test = np.array(second)
-                print("Using 10x1 cross-validation for this dataset")
             else:
                 # Split the dataset in 2 parts with the current seed
                 train, test = train_test_split(range(len(self.trainx)), test_size=0.50, random_state=second)
                 train = np.array(train)
                 test = np.array(test)
-                print("Using 5x2 cross-validation for this dataset")
 
-            print("\n******************************")
-            print("Starting fold: " + str(ntrain))
-            print("******************************")
+            # print("\n******************************")
+            # print("Starting fold: " + str(ntrain))
+            # print("******************************")
             # Normalize using the training set
             trainx, means, stds = normalize(self.trainx[train])
             if self.pca:
-                print("Executing IBRA + PCA")
+                # print("Executing IBRA + PCA")
                 trainx = getPCA(trainx, numComponents=self.nbands, dataset=self.data)
             elif self.pls:
-                print("Executing IBRA + Pls")
+                # print("Executing IBRA + Pls")
                 trainx = getPLS(trainx, self.train_y[train], numComponents=self.nbands, dataset=self.data)
             valx = self.trainx[test]
 
@@ -225,7 +223,7 @@ class TrainSelection:
             correct_pred = (np.array(ypred) == ytest).astype(float)
             oa = correct_pred.sum() / len(correct_pred) * 100
             prec, rec, f1, support = precision_recall_fscore_support(ytest, ypred, average='macro')
-            print("Validation accuracy: " + str(oa))
+            # print("Validation accuracy: " + str(oa))
 
             # Add metrics to the list
             cvoa.append(oa)
@@ -256,10 +254,10 @@ class TrainSelection:
                      mean_f1=float(np.mean(cvf1)), std_f1=float(np.std(cvf1)))
 
     def train(self):
-        self.train_validate(training=True)
+        return self.train_validate(training=True)
 
     def validate(self):
-        self.train_validate(training=False)
+        return self.train_validate(training=False)
 
     def selection(self, select=6):
         """Select the top k bands using the Greedy Spectral Selection method"""

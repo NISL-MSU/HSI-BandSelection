@@ -52,7 +52,7 @@ class SelectBands:
         """
         data = self.dataset.name
         f1_best = 0
-        IBRA_best, stats_best, VIF_best, GSS_best, pca_or_pls_transform_best = None, None, None, None, None
+        IBRA_best, stats_best, VIF_best, GSS_best = None, None, None, None
 
         for t in reversed(range(final_vf, init_vf + 1)):
             print("*************************************")
@@ -123,12 +123,12 @@ class SelectBands:
             net = TrainSelection(method=self.method, classifier=self.classifier, batch_size=self.batch_size,
                                  epochs=self.epochs, plot=False, th=str(t), dataset=new_dataset,
                                  pca=self.pca, pls=self.pls, transform=self.transform)
-            stats, pca_or_pls_transform = net.train()
+            stats = net.train()
 
             if stats.f1 > f1_best:
                 f1_best = stats.f1
                 IBRA_best = IBRAindexes
-                stats_best, VIF_best, GSS_best, pca_or_pls_transform_best = stats, t, GSSindexes, pca_or_pls_transform
+                stats_best, VIF_best, GSS_best = stats, t, GSSindexes
 
         print("The best F1 performance was achieved using a VIF = {}".format(VIF_best))
 

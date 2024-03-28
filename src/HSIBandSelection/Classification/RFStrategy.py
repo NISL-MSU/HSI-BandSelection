@@ -62,7 +62,7 @@ class RFStrategy(ModelStrategy):
         Y = np.array(Y)
 
         # Shuffle
-        np.random.seed(seed=7)  # Initialize seed to get reproducible results
+        np.random.seed(7)  # Initialize seed to get reproducible results
         ind = [i for i in range(X.shape[0])]
         np.random.shuffle(ind)
         X = X[ind]
