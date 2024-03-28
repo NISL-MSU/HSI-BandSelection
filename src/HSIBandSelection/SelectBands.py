@@ -107,6 +107,8 @@ class SelectBands:
             GSSindexes = None
             if self.method == 'GSS':
                 GSSindexes, entr = net.selection(select=self.nbands)
+                new_dataset = process_data(self.dataset, selection=GSSindexes, flag_average=False,
+                                           transform=self.transform)
             else:
                 if self.pca:
                     print("Applying PCA over the IBRA-preselected bands and training a classifier")
