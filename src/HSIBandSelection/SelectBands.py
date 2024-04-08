@@ -14,7 +14,7 @@ class SelectBands:
                  scratch: bool = True):
         """Class used for performing hyperspectral band selection
         :param dataset: utils.Dataset object
-        :param method: Method name. Options: 'GSS', 'PCA' (IBRA+PCA), and 'PLS' (IBRA+PLS)
+        :param method: Method name. Options: 'IBRA', 'GSS' (IBRA+GSS), 'PCA' (IBRA+PCA), and 'PLS' (IBRA+PLS)
         :param classifier: Classifier type. Options: 'CNN' (if data is 2D), 'ANN', 'RF', 'SVM'
         :param nbands: How many spectral bands you want to select or reduce to
         :param transform: If True, the final selected bands will suffer a Gaussian transformation to simulate being a multispectral band
@@ -98,7 +98,6 @@ class SelectBands:
                 with open(filedistances, 'wb') as fi:
                     pickle.dump(dist, fi)
 
-            # Get the k-selected bands based on IE
             new_dataset = process_data(self.dataset, selection=IBRAindexes, flag_average=False,
                                        transform=self.transform)
             net = TrainSelection(method=self.method, classifier=self.classifier, batch_size=self.batch_size,
@@ -138,12 +137,15 @@ class SelectBands:
         if self.method == 'GSS':
             print("The best band combination obtained using GSS was {}".format(GSS_best))
             return VIF_best, IBRA_best, GSS_best, stats_best
+        elif self.method == 'IBRA':
+            print("The pre-selected bands obtained by IBRA were {}".format(GSS_best))
+            return VIF_best, IBRA_best, stats_best
         else:
             new_dataset = process_data(self.dataset, selection=IBRA_best, flag_average=False, transform=self.transform)
             if self.pca:
                 return VIF_best, IBRA_best, getPCA(new_dataset.train_x, numComponents=self.nbands), stats_best
             else:
-                return VIF_best, IBRA_best, getPLS(new_dataset.train_x, numComponents=self.nbands), stats_best
+                return VIF_best, IBRA_best, getPLS(new_dataset.train_x, new_dataset.train_y, numComponents=self.nbands), stats_best
 
 
 if __name__ == '__main__':

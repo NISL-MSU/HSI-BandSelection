@@ -67,7 +67,7 @@ dataset = Dataset(train_x=X, train_y=Y, name='IP')
 We'll use the `SelectBands` class. **Parameters**:
 
 *   `dataset`: utils.Dataset object
-*   `method`: Method name. Options: 'GSS' (IBRA + Greedy Spectral Selection), 'PCA' (IBRA+PCA), and 'PLS' (IBRA+PLS). *Default:* 'GSS'
+*   `method`: Method name. Options: 'IBRA', 'GSS' (IBRA+GSS), 'PCA' (IBRA+PCA), and 'PLS' (IBRA+PLS). *Default:* 'GSS'
 *   `classifier`: Classifier type. Options: 'CNN' (if data is 2D), 'ANN', 'RF', 'SVM'. *Default:* 'CNN'
 *   `nbands`: How many spectral bands you want to select or reduce to. *Default:* 5
 *   `transform`: If True, the final selected bands will suffer a Gaussian transformation to simulate being a multispectral band. *Default:* False
@@ -87,6 +87,13 @@ From the SelectBands class, we call the `run_selection` method. **Parameters**:
 *   `final_vf`: Final Variance Inflation Factor threshold (used for IBRA). *Default: 5*
 
 **Return**:
+
+
+If the selected method is IBRA:
+
+*   `VIF_best`: The VIF threshold at which the best results were obtained
+*   `IBRA_best`: The best pre-selected bands using Iner-band redundancy
+*   `stats_best`: The best performance metric values obtained after 5x2 CV using the selected bands
 
 If the selected method is GSS:
 
