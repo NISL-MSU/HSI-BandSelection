@@ -111,7 +111,7 @@ class SelectBands:
             else:
                 if self.pca:
                     print("Applying PCA over the IBRA-preselected bands and training a classifier")
-                else:
+                elif self.pls:
                     print("Applying PLS over the IBRA-preselected bands and training a classifier")
 
             # Train selected bands if the selected set of bands was not trained before
